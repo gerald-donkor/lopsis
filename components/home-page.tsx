@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { AuthControls } from "@/components/auth-controls";
 
 type IconProps = { className?: string };
 
@@ -70,21 +71,6 @@ function Star({ className }: IconProps) {
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="m12 2.6 2.8 5.7 6.3.9-4.5 4.4 1 6.2-5.6-3-5.6 3 1-6.2-4.5-4.4 6.3-.9L12 2.6Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
     </svg>
-  );
-}
-
-function Avatar() {
-  return (
-    <span className="home-avatar" aria-hidden="true">
-      <svg viewBox="0 0 48 48">
-        <rect width="48" height="48" fill="#eadfd7" />
-        <path d="M13 23c0-11 5-18 12-18 8 0 12 7 12 18v15H13V23Z" fill="#271a17" />
-        <ellipse cx="25" cy="19" rx="8" ry="10" fill="#d99572" />
-        <path d="M17 16c2-7 6-9 9-9 5 0 8 4 9 10-4-2-6-6-7-9-2 4-6 7-11 8Z" fill="#35201a" />
-        <path d="M8 48c1-11 7-17 17-17s16 6 17 17H8Z" fill="#182126" />
-        <path d="M22 22.5c1.8 1.2 3.8 1.2 5.5 0" stroke="#914c3f" strokeWidth=".8" strokeLinecap="round" />
-      </svg>
-    </span>
   );
 }
 
@@ -165,7 +151,7 @@ export default function HomePage() {
           </div>
           <div className="home-account">
             <button type="button" aria-label="Notifications"><Bell /></button>
-            <Avatar />
+            <AuthControls />
           </div>
         </header>
 

@@ -259,8 +259,15 @@ a { color: inherit; text-decoration: none; }
 .home-account button { display: grid; width: 31px; height: 31px; cursor: pointer; place-items: center; border: 0; border-radius: 50%; background: transparent; color: #24282c; }
 .home-account button:hover { background: #f3ece7; }
 .home-account button svg { width: 27px; height: 27px; }
-.home-avatar { display: block; width: 50px; height: 50px; overflow: hidden; border: 3px solid #eee7e1; border-radius: 50%; background: #eadfd7; }
-.home-avatar svg { display: block; width: 100%; height: 100%; }
+.home-auth-controls { display: flex; align-items: center; gap: 12px; }
+.home-auth-link, .home-auth-button { display: inline-flex; height: 32px; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 600; letter-spacing: -.015em; transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease; }
+.home-auth-link { padding-inline: 2px; color: #af5b43; }
+.home-auth-link:hover { color: #e9532d; background: #fdf0ea; }
+.home-auth-link:focus-visible, .home-auth-button:focus-visible { outline: 2px solid #e9532d; outline-offset: 2px; }
+.home-auth-button { border: 1px solid #ed5c33; padding-inline: 14px; background: #ef6338; color: #fff; box-shadow: 0 2px 4px rgba(214,78,35,.18); }
+.home-auth-button:hover { border-color: #dd4f26; background: #e9532d; box-shadow: 0 3px 6px rgba(214,78,35,.22); transform: translateY(-1px); }
+.home-user-button { display: grid; width: 50px; height: 50px; place-items: center; }
+.home-user-button .cl-userButtonAvatarBox { width: 44px; height: 44px; border: 3px solid #eee7e1; }
 
 .home-hero { display: flex; min-height: 644px; flex-direction: column; align-items: center; padding: 66px 50px 52px; text-align: center; }
 .home-eyebrow { margin: 0 0 31px; border: 1px solid #f0dcd2; border-radius: 8px; padding: 12px 15px 10px; background: rgba(255,248,244,.66); color: #e9532d; font-size: 12px; font-weight: 600; letter-spacing: .18em; line-height: 1; text-transform: uppercase; }
@@ -340,7 +347,12 @@ a { color: inherit; text-decoration: none; }
   .home-header-left { gap: 0; }
   .home-nav { position: absolute; top: 72px; right: 0; left: 0; z-index: 1; justify-content: center; gap: 38px; height: 45px; border-bottom: 1px solid #eee6e0; background: rgba(253,251,249,.96); font-size: 14px; }
   .home-account { gap: 10px; }
-  .home-avatar { width: 39px; height: 39px; }
+  .home-auth-controls { gap: 5px; }
+  .home-auth-link, .home-auth-button { height: 30px; font-size: 12px; }
+  .home-auth-link { padding-inline: 3px; }
+  .home-auth-button { padding-inline: 10px; }
+  .home-user-button { width: 39px; height: 39px; }
+  .home-user-button .cl-userButtonAvatarBox { width: 39px; height: 39px; }
   .home-account button svg { width: 24px; height: 24px; }
   .home-hero { min-height: 610px; padding: 81px 20px 42px; }
   .home-eyebrow { margin-bottom: 24px; font-size: 10px; }
