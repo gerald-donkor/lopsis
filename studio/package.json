@@ -1,0 +1,27 @@
+{
+  "name": "lopsis-studio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "sanity dev",
+    "start": "sanity start",
+    "build": "sanity build",
+    "deploy": "sanity deploy",
+    "deploy:graphql": "sanity graphql deploy",
+    "schema:deploy": "sanity schemas deploy",
+    "typecheck": "tsc --noEmit",
+    "typegen": "sanity schema extract --path schema.json --enforce-required-fields && sanity typegen generate"
+  },
+  "dependencies": {
+    "@sanity/icons": "^5.2.1",
+    "@sanity/vision": "^5.31.2",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sanity": "^5.31.2",
+    "styled-components": "^6.5.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}
