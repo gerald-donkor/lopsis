@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import posthog from "posthog-js";
 import type { COURSES_QUERY_RESULT } from "@/sanity.types";
 import { SiteHeader } from "@/components/site-header";
 import { urlFor } from "@/sanity/lib/image";
@@ -68,7 +71,7 @@ function CourseCard({ course }: { course: Course }) {
             <span>{formatDuration(course.durationSeconds)}</span>
             <span>{moduleCount} {moduleCount === 1 ? "module" : "modules"}</span>
           </div>
-          <Link className="catalog-card-action" href={href} aria-label={`View course: ${course.title}`}>
+          <Link className="catalog-card-action" href={href} aria-label={`View course: ${course.title}`} onClick={() => posthog.capture("all_courses_course_clicked", { course_slug: course.slug, course_title: course.title })}>
             View course <ArrowRight />
           </Link>
         </div>
