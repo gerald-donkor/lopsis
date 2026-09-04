@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import posthog from "posthog-js";
 
 export type CurriculumModule = {
   key: string;
@@ -30,11 +31,13 @@ export function CourseCurriculum({ modules }: { modules: CurriculumModule[] }) {
   const visibleModules = showAll ? modules : modules.slice(0, 3);
   const canCollapse = modules.length > 3;
 
-  function toggleModule(key: string) {
+  function toggleModule(key: string, title: string) {
     setExpanded((current) => {
       const next = new Set(current);
+      const isExpanding = !next.has(key);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      posthog.capture("curriculum_module_expanded", { module_key: key, module_title: title, expanded: isExpanding });
       return next;
     });
   }
@@ -53,7 +56,7 @@ export function CourseCurriculum({ modules }: { modules: CurriculumModule[] }) {
                 type="button"
                 aria-expanded={isExpanded}
                 aria-controls={panelId}
-                onClick={() => toggleModule(module.key)}
+                onClick={() => toggleModule(module.key, module.title)}
               >
                 <span className="course-module-number">{moduleIndex + 1}</span>
                 <span className="course-module-copy">
@@ -67,7 +70,7 @@ export function CourseCurriculum({ modules }: { modules: CurriculumModule[] }) {
                 <ol className="course-lesson-list" id={panelId}>
                   {module.lessons.map((lesson, lessonIndex) => (
                     <li key={lesson.id}>
-                      <Link href={`/lessons/${lesson.slug}`}>
+                      <Link href={`/lessons/${lesson.slug}`} onClick={() => posthog.capture("curriculum_lesson_clicked", { lesson_slug: lesson.slug, lesson_title: lesson.title, module_title: module.title, lesson_number: `${moduleIndex + 1}.${lessonIndex + 1}` })}>
                         <span>Lesson {moduleIndex + 1}.{lessonIndex + 1}</span>
                         <strong>{lesson.title}</strong>
                         <em>{lesson.duration}</em>
@@ -86,7 +89,11 @@ export function CourseCurriculum({ modules }: { modules: CurriculumModule[] }) {
           type="button"
           aria-expanded={showAll}
           aria-controls="course-module-list"
-          onClick={() => setShowAll((value) => !value)}
+          onClick={() => {
+            const next = !showAll;
+            setShowAll(next);
+            posthog.capture("all_modules_toggled", { showing_all: next, total_modules: modules.length });
+          }}
         >
           {showAll ? "Show fewer modules" : `Show all ${modules.length} modules`}
           <Chevron expanded={showAll} />

@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import posthog from "posthog-js";
 import type { COURSES_QUERY_RESULT } from "@/sanity.types";
 import { SiteHeader } from "@/components/site-header";
 import { urlFor } from "@/sanity/lib/image";
@@ -212,7 +215,7 @@ function CourseCard({ course }: { course: Course }) {
   return (
     <article className="home-course-card">
       <div className="home-course-logo"><CourseIcon course={course} /></div>
-      <h3><Link href={`/courses/${course.slug}`}>{course.title}</Link></h3>
+      <h3><Link href={`/courses/${course.slug}`} onClick={() => posthog.capture("home_course_clicked", { course_slug: course.slug, course_title: course.title })}>{course.title}</Link></h3>
       <p>{course.summary}</p>
       <div className="home-course-meta">
         <span><Level />{formatLevel(course.level)}</span>
@@ -246,11 +249,11 @@ export default function HomePage({ courses }: { courses: COURSES_QUERY_RESULT })
             <p className="home-eyebrow">Intelligent Learning</p>
             <h1 id="home-title">Search your learning<br />in plain English.</h1>
             <p className="home-intro">Lopsis understands what you want to learn and<br className="home-desktop-break" /> finds the exact lessons across all your courses.</p>
-            <Link className="home-cta" href="/courses">Explore Courses <ArrowRight /></Link>
+            <Link className="home-cta" href="/courses" onClick={() => posthog.capture("home_cta_clicked")}>Explore Courses <ArrowRight /></Link>
             <div className="home-search" role="search">
               <Search />
               <label className="sr-only" htmlFor="learning-search">Search your learning</label>
-              <input id="learning-search" type="search" placeholder="Ask anything about your learning..." />
+              <input id="learning-search" type="search" placeholder="Ask anything about your learning..." onFocus={() => posthog.capture("search_focused")} />
               <kbd>⌘ K</kbd>
             </div>
           </section>
