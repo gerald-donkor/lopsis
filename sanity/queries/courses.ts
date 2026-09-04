@@ -1,10 +1,6 @@
 import {defineQuery} from 'next-sanity'
 
-import {
-  COURSE_CARD_FRAGMENT,
-  IMAGE_FRAGMENT,
-  LESSON_SUMMARY_FRAGMENT,
-} from './fragments'
+import {COURSE_CARD_FRAGMENT, LESSON_SUMMARY_FRAGMENT} from './fragments'
 
 export const COURSES_QUERY = defineQuery(/* groq */ `
   *[_type == "course" && defined(slug.current)]
@@ -20,7 +16,7 @@ export const COURSE_BY_SLUG_QUERY = defineQuery(/* groq */ `
       _key,
       title,
       description,
-      icon { ${IMAGE_FRAGMENT} }
+      icon
     },
     modules[] {
       _key,

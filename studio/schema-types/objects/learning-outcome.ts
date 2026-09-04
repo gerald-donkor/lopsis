@@ -10,7 +10,8 @@ export const learningOutcome = defineType({
     defineField({
       name: 'icon',
       title: 'Icon',
-      type: 'contentImage',
+      type: 'string',
+      description: 'Icon identifier (e.g. sparkles, code, workflow, gauge, layers, rocket, shield, puzzle).',
       validation: (rule) => rule.required(),
     }),
     defineField({
@@ -27,5 +28,5 @@ export const learningOutcome = defineType({
       validation: (rule) => rule.required().min(10).max(240),
     }),
   ],
-  preview: {select: {title: 'title', media: 'icon'}},
+  preview: {select: {title: 'title', subtitle: 'icon'}},
 })

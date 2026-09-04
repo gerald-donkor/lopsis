@@ -99,7 +99,10 @@ export const course = defineType({
       title: 'Modules',
       type: 'array',
       description: 'Order modules and their lesson references to define the curriculum.',
-      of: [defineArrayMember({type: 'courseModule'})],
+      of: [
+        defineArrayMember({type: 'courseModule'}),
+        defineArrayMember({type: 'module'}),
+      ],
       validation: (rule) => rule.required().min(1),
     }),
   ],

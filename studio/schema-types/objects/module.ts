@@ -42,3 +42,8 @@ export const courseModule = defineType({
     },
   },
 })
+
+export const moduleObject = defineType({
+  ...courseModule,
+  name: 'module',
+})
