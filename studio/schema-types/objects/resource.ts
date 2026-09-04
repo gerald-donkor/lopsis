@@ -44,3 +44,8 @@ export const lessonResource = defineType({
   ],
   preview: {select: {title: 'title', subtitle: 'type'}},
 })
+
+export const resourceObject = defineType({
+  ...lessonResource,
+  name: 'resource',
+})

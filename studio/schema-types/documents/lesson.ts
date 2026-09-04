@@ -33,10 +33,22 @@ export const lesson = defineType({
       type: 'contentImage',
     }),
     defineField({
+      name: 'thumbnail',
+      title: 'Thumbnail image',
+      type: 'contentImage',
+      hidden: true,
+    }),
+    defineField({
       name: 'durationSeconds',
       title: 'Duration (seconds)',
       type: 'number',
-      validation: (rule) => rule.required().integer().positive(),
+      validation: (rule) => rule.integer().positive(),
+    }),
+    defineField({
+      name: 'duration',
+      title: 'Duration (legacy)',
+      type: 'number',
+      hidden: true,
     }),
     defineField({
       name: 'freePreview',
@@ -82,15 +94,25 @@ export const lesson = defineType({
       name: 'resources',
       title: 'Resources',
       type: 'array',
-      of: [defineArrayMember({type: 'lessonResource'})],
+      of: [
+        defineArrayMember({type: 'lessonResource'}),
+        defineArrayMember({type: 'resource'}),
+      ],
       validation: (rule) => rule.max(12),
     }),
   ],
   preview: {
-    select: {title: 'title', durationSeconds: 'durationSeconds', media: 'poster'},
-    prepare({title, durationSeconds, media}) {
-      const minutes = durationSeconds ? Math.ceil(durationSeconds / 60) : 0
-      return {title, subtitle: `${minutes} min`, media}
+    select: {
+      title: 'title',
+      durationSeconds: 'durationSeconds',
+      duration: 'duration',
+      poster: 'poster',
+      thumbnail: 'thumbnail',
+    },
+    prepare({title, durationSeconds, duration, poster, thumbnail}) {
+      const sec = durationSeconds ?? duration
+      const minutes = sec ? Math.ceil(sec / 60) : 0
+      return {title, subtitle: `${minutes} min`, media: poster ?? thumbnail}
     },
   },
 })

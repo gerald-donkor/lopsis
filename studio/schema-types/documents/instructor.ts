@@ -29,8 +29,10 @@ export const instructor = defineType({
     defineField({
       name: 'expertise',
       title: 'Expertise',
-      type: 'string',
-      validation: (rule) => rule.required().min(3).max(160),
+      type: 'array',
+      of: [{type: 'string'}],
+      description: 'Topics or skills the instructor specializes in.',
+      validation: (rule) => rule.required().min(1),
     }),
     defineField({
       name: 'bio',
@@ -40,6 +42,10 @@ export const instructor = defineType({
     }),
   ],
   preview: {
-    select: {title: 'name', subtitle: 'expertise', media: 'photo'},
+    select: {title: 'name', expertise: 'expertise', media: 'photo'},
+    prepare({title, expertise, media}) {
+      const subtitle = Array.isArray(expertise) ? expertise.join(' · ') : expertise
+      return {title, subtitle, media}
+    },
   },
 })

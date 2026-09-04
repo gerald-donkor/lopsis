@@ -7,8 +7,8 @@ import {instructor} from './documents/instructor'
 import {lesson} from './documents/lesson'
 import {contentImage} from './objects/content-image'
 import {learningOutcome} from './objects/learning-outcome'
-import {courseModule} from './objects/module'
-import {lessonResource} from './objects/resource'
+import {courseModule, moduleObject} from './objects/module'
+import {lessonResource, resourceObject} from './objects/resource'
 
 export const schemaTypes: SchemaTypeDefinition[] = [
   course,
@@ -16,8 +16,10 @@ export const schemaTypes: SchemaTypeDefinition[] = [
   instructor,
   category,
   courseModule,
+  moduleObject,
   learningOutcome,
   lessonResource,
+  resourceObject,
   contentImage,
   portableText,
 ]
