@@ -39,7 +39,7 @@ async function run() {
   console.log('--- Starting Sanity Content Seeding & Harmonization ---');
   console.log(`Target: Project ${projectId}, Dataset ${dataset}`);
 
-  const ndjsonPath = path.resolve(process.cwd(), 'studio/scripts/seed/seed.ndjson');
+  const ndjsonPath = path.resolve(process.cwd(), path.basename(process.cwd()) === 'studio' ? '../studio/scripts/seed/seed.ndjson' : 'studio/scripts/seed/seed.ndjson');
   if (!fs.existsSync(ndjsonPath)) {
     throw new Error(`Seed file not found at ${ndjsonPath}`);
   }
