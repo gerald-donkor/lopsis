@@ -40,7 +40,8 @@ export const COURSE_CARD_FRAGMENT = /* groq */ `
     photo { ${IMAGE_FRAGMENT} }
   },
   "moduleCount": count(modules),
-  "lessonCount": count(modules[].lessons[])
+  "lessonCount": count(modules[].lessons[]),
+  "durationSeconds": coalesce(math::sum(modules[].lessons[]->durationSeconds), 0)
 `
 
 export const LESSON_SUMMARY_FRAGMENT = /* groq */ `
