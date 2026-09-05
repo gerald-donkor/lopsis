@@ -250,12 +250,12 @@ export default function HomePage({ courses }: { courses: COURSES_QUERY_RESULT })
             <h1 id="home-title">Search your learning<br />in plain English.</h1>
             <p className="home-intro">Lopsis understands what you want to learn and<br className="home-desktop-break" /> finds the exact lessons across all your courses.</p>
             <Link className="home-cta" href="/courses" onClick={() => posthog.capture("home_cta_clicked")}>Explore Courses <ArrowRight /></Link>
-            <div className="home-search" role="search">
+            <form className="home-search" role="search" action="/search">
               <Search />
               <label className="sr-only" htmlFor="learning-search">Search your learning</label>
-              <input id="learning-search" type="search" placeholder="Ask anything about your learning..." onFocus={() => posthog.capture("search_focused")} />
+              <input id="learning-search" name="q" type="search" maxLength={240} required placeholder="Ask anything about your learning..." onFocus={() => posthog.capture("search_focused")} />
               <kbd>⌘ K</kbd>
-            </div>
+            </form>
           </section>
 
           <section className="home-courses" aria-labelledby="all-courses-title">
