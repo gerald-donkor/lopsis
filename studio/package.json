@@ -10,7 +10,8 @@
     "deploy:graphql": "sanity graphql deploy",
     "schema:deploy": "sanity schemas deploy",
     "typecheck": "tsc --noEmit",
-    "typegen": "sanity schema extract --path schema.json --enforce-required-fields && sanity typegen generate"
+    "typegen": "sanity schema extract --path schema.json --enforce-required-fields && sanity typegen generate",
+    "ingest:videos": "sanity exec scripts/ingest-videos.ts --with-user-token"
   },
   "dependencies": {
     "@sanity/icons": "^5.2.1",

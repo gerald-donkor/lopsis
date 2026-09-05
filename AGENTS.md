@@ -92,7 +92,7 @@ Never cross these boundaries. The browser holds no token, never calls the MCP or
 
 # 6. Tech stack
 
-Use Next.js (App Router), Clerk for authentication, PostHog for product analytics, Sanity Studio with `next-sanity`, `@sanity/image-url`, and `@portabletext/react`, Tailwind with typography, the Sanity Context MCP over server side HTTP, the Vercel AI SDK with the OpenAI provider, `react-markdown` only for rendering the search reply, Zod for validating structured output, and TypeScript.
+Use Next.js (App Router), Clerk for authentication, PostHog for product analytics, Sanity Studio with `next-sanity`, `@sanity/image-url`, and `@portabletext/react`, Tailwind with typography, the Sanity Context MCP over server side HTTP, the Vercel AI SDK with the Google provider from `@ai-sdk/google` and the stable `gemini-3.6-flash` model, `react-markdown` only for rendering the search reply, Zod for validating structured output, and TypeScript.
 
 Do not use the `@sanity/context` Studio plugin when it lags the Studio's Sanity major version, `text::semanticSimilarity()` unless embeddings are enabled, an embedded Studio, a public dataset, a client side token, or a separate backend framework. Section 12 explains why.
 
@@ -102,6 +102,7 @@ Do not use the `@sanity/context` Studio plugin when it lags the Studio's Sanity 
 
 Build to these unless the user changes them. They exist because search quality and safety depend on them.
 
+- Lopsis uses Google Gemini through `@ai-sdk/google`, with the stable `gemini-3.6-flash` model as the default. Keep `GOOGLE_GENERATIVE_AI_API_KEY` server only and use `GOOGLE_GENERATIVE_AI_MODEL` for model configuration. Do not introduce or restore OpenAI packages, credentials, model ids, or provider code unless the user explicitly requests a provider change.
 - Search is the Sanity Context MCP plus an LLM, and you surface it as result cards, not a chatbox. The LLM writes GROQ over the schema through the MCP, and the UI renders structured lesson cards instead of conversational prose.
 - Search is grounded. Say only what the data returns. Never invent a course, lesson, price, duration, or timestamp.
 - Video intelligence lives in dedicated video documents, one per unique video. Each holds a table of contents and the transcript split into timestamped pieces (section 8). Lessons link to them by video URL. Treat these documents as an internal lookup and never show them to the user as results.

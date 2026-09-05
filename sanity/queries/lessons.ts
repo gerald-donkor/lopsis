@@ -30,6 +30,7 @@ export const LESSON_BY_SLUG_QUERY = defineQuery(/* groq */ `
       _id,
       title,
       "slug": slug.current,
+      level,
       icon { ${IMAGE_FRAGMENT} },
       instructor->{
         _id,
