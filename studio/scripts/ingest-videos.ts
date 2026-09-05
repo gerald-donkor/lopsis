@@ -135,9 +135,8 @@ async function fetchVideo(videoUrl: string) {
   const captionsUrl = new URL(track.baseUrl)
   captionsUrl.searchParams.set('fmt', 'json3')
   const captions = await fetch(captionsUrl)
-  if (!captions.ok) throw new Error(`Caption download returned ${captions.status}`)
-  const captionText = await captions.text()
-  const events = captionText.trim()
+  const captionText = captions.ok ? await captions.text() : ''
+  const events = captions.ok && captionText.trim()
     ? (JSON.parse(captionText) as {events?: CaptionEvent[]}).events ?? []
     : await fetchCaptionsWithYtDlp(videoUrl)
   const renderedChapters = player.playerOverlays?.playerOverlayRenderer?.decoratedPlayerBarRenderer?.decoratedPlayerBarRenderer?.playerBar?.multiMarkersPlayerBarRenderer?.markersMap?.flatMap((map) => map.value?.chapters ?? []).flatMap((chapter) => {

@@ -14,7 +14,7 @@ function parseStart(value: string | string[] | undefined, duration: number | nul
 
   const seconds = Number(raw);
   if (!Number.isSafeInteger(seconds)) return 0;
-  return duration ? Math.min(seconds, Math.max(0, duration - 1)) : seconds;
+  return duration !== null ? Math.min(seconds, Math.max(0, duration - 1)) : seconds;
 }
 
 export async function generateMetadata({ params }: LessonRouteProps): Promise<Metadata> {
