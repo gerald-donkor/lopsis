@@ -9,15 +9,20 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.121",
+    "@ai-sdk/mcp": "^1.0.78",
     "@clerk/nextjs": "^7.8.4",
     "@sanity/image-url": "^2.1.1",
+    "ai": "^6.0.277",
     "next": "16.3.3",
     "next-sanity": "^13.3.4",
     "posthog-js": "^1.427.2",
     "posthog-node": "^5.51.6",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "sanity": "^6.12.0",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -28,5 +33,14 @@
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@vercel/frameworks": {
+      "js-yaml": "3.15.1",
+      "smol-toml": "1.6.1"
+    },
+    "typeid-js": {
+      "uuid": "11.1.1"
+    }
   }
 }
