@@ -21,6 +21,15 @@ test('search-term schema accepts the prompt contract and rejects output-shape dr
     searchTermsSchema.parse({terms: ['system prompt', 'prompt injection', 'llm guardrails']}),
     {terms: ['system prompt', 'prompt injection', 'llm guardrails']},
   )
+  const maxTerm = 'a'.repeat(64)
+  assert.deepEqual(searchTermsSchema.parse({terms: [maxTerm]}), {terms: [maxTerm]})
+  assert.throws(() => searchTermsSchema.parse({terms: ['a'.repeat(65)]}))
+  assert.throws(() => searchTermsSchema.parse({terms: ['prompt_injection']}))
+  assert.throws(() => searchTermsSchema.parse({terms: ['prompt!injection']}))
+  assert.deepEqual(
+    searchTermsSchema.parse({terms: ['System Prompt', 'LLM Guardrails']}),
+    {terms: ['system prompt', 'llm guardrails']},
+  )
   assert.throws(() => searchTermsSchema.parse({terms: []}))
   assert.throws(() => searchTermsSchema.parse({terms: Array.from({length: 13}, (_, index) => `term ${index}`)}))
   assert.throws(() => searchTermsSchema.parse({terms: ['return *[_type == "lesson"]']}))
