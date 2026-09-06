@@ -54,6 +54,7 @@ export const searchCandidatesSchema = z.object({
 
 const resultBase = z.object({
   id: z.string(),
+  lessonId: z.string(),
   lessonSlug: z.string(),
   lessonTitle: z.string(),
   courseId: z.string(),
@@ -76,7 +77,7 @@ export const searchResultSchema = z.discriminatedUnion('kind', [
     kind: z.literal('video'),
     posterUrl: z.string().url().nullable(),
     startSeconds: z.number().int().min(0),
-    clipLengthSeconds: z.number().int().positive(),
+    clipLengthSeconds: z.number().int().positive().nullable(),
     matchSource: z.enum(['chapter', 'chunk']),
   }),
 ])
@@ -86,7 +87,7 @@ export const searchResponseSchema = z.object({
   query: z.string(),
   resultCount: z.number().int().min(0),
   courseCount: z.number().int().min(0),
-  sortOptions: z.tuple([z.literal('relevance')]),
+  sortOptions: z.tuple([z.literal('relevance'), z.literal('title'), z.literal('course')]),
   results: z.array(searchResultSchema),
 })
 

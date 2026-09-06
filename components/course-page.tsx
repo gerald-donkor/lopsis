@@ -94,7 +94,7 @@ function getCurriculum(course: Course) {
 
 export function CoursePage({ course }: { course: Course }) {
   useEffect(() => {
-    posthog.capture("course_viewed", { course_slug: course.slug, course_title: course.title });
+    posthog.capture("course_viewed", { course_id: course._id, course_slug: course.slug });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [course.slug]);
 
@@ -131,8 +131,8 @@ export function CoursePage({ course }: { course: Course }) {
                 <span><StudentsIcon />{formatStudents(course.studentCount)} students</span>
               </div>
               <div className="course-actions">
-                <Link className="course-primary-action" href={firstLessonHref} onClick={() => posthog.capture("course_started", { course_slug: course.slug, course_title: course.title })}>Continue Learning <ArrowRight /></Link>
-                <button className="course-bookmark" type="button" aria-label="Bookmark course (not saved)" onClick={() => posthog.capture("course_bookmarked", { course_slug: course.slug, course_title: course.title })}><Bookmark /> Bookmark</button>
+                <Link className="course-primary-action" href={firstLessonHref} onClick={() => posthog.capture("course_started", { course_id: course._id, course_slug: course.slug, source: "course_hero" })}>Continue Learning <ArrowRight /></Link>
+                <button className="course-bookmark" type="button" aria-label="Bookmark course (not saved)"><Bookmark /> Bookmark</button>
               </div>
             </div>
           </section>
@@ -164,7 +164,7 @@ export function CoursePage({ course }: { course: Course }) {
         <aside className="course-progress-strip" aria-label="Course progress">
           <div className="course-progress-copy"><span>Your Progress</span><strong>0% <em>complete</em></strong></div>
           <div className="course-progress-track" role="progressbar" aria-label="Course progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}><span /></div>
-          <Link className="course-progress-action" href={firstLessonHref} onClick={() => posthog.capture("course_started", { course_slug: course.slug, course_title: course.title })}>Continue Learning <ArrowRight /></Link>
+          <Link className="course-progress-action" href={firstLessonHref} onClick={() => posthog.capture("course_started", { course_id: course._id, course_slug: course.slug, source: "course_progress_strip" })}>Continue Learning <ArrowRight /></Link>
         </aside>
       </div>
     </div>

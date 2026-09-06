@@ -215,7 +215,7 @@ function CourseCard({ course }: { course: Course }) {
   return (
     <article className="home-course-card">
       <div className="home-course-logo"><CourseIcon course={course} /></div>
-      <h3><Link href={`/courses/${course.slug}`} onClick={() => posthog.capture("home_course_clicked", { course_slug: course.slug, course_title: course.title })}>{course.title}</Link></h3>
+      <h3><Link href={`/courses/${course.slug}`} onClick={() => posthog.capture("home_course_clicked", { course_id: course._id, course_slug: course.slug })}>{course.title}</Link></h3>
       <p>{course.summary}</p>
       <div className="home-course-meta">
         <span><Level />{formatLevel(course.level)}</span>
