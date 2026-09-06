@@ -242,7 +242,7 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
           youtubePlayer = new window.YT.Player(iframe, {
             events: {
               onReady: (event) => {
-                if (startSeconds > 0) {
+                if (!disposed && startSeconds > 0) {
                   event.target.seekTo(startSeconds, true);
                 }
               },
@@ -291,18 +291,23 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
         if (!window.playerjs?.Player) throw new Error("player_api_unavailable");
         bunnyPlayer = new window.playerjs.Player(iframe);
         if (startSeconds > 0) {
-          bunnyPlayer.on("ready", () => {
+          const onReady: BunnyCallback = () => {
             if (!disposed && bunnyPlayer && typeof bunnyPlayer.setCurrentTime === "function") {
               bunnyPlayer.setCurrentTime(startSeconds);
             }
-          });
+          };
+          bunnyCleanups.push(["ready", onReady]);
+          bunnyPlayer.on("ready", onReady);
         }
         const onPlay: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordPlay(data.seconds, data.duration); };
         const onTimeUpdate: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordProgress(data.seconds ?? 0, data.duration ?? durationSeconds ?? 0); };
         const onEnded: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordCompleted(data.seconds ?? data.duration ?? 0, data.duration ?? durationSeconds ?? 0); };
         const onError: BunnyCallback = () => captureFailure("provider_error");
-        bunnyCleanups.push(["play", onPlay], ["timeupdate", onTimeUpdate], ["ended", onEnded], ["error", onError]);
-        for (const [event, callback] of bunnyCleanups) bunnyPlayer.on(event, callback);
+        const eventListeners: Array<[string, BunnyCallback]> = [["play", onPlay], ["timeupdate", onTimeUpdate], ["ended", onEnded], ["error", onError]];
+        for (const [event, callback] of eventListeners) {
+          bunnyCleanups.push([event, callback]);
+          bunnyPlayer.on(event, callback);
+        }
       } catch {
         captureFailure("player_api_unavailable");
       }
