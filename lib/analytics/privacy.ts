@@ -5,6 +5,11 @@ const IPV6_PATTERN = /(?<![\w:])(?:[A-F0-9]{0,4}:){2,7}[A-F0-9]{0,4}(?![\w:])/gi
 const PHONE_PATTERN = /(?:^|(?<=[^A-Z0-9]))\+?\d[\d\s().-]{7,}\d(?=$|\s|[,.!?;:])/gi;
 const HANDLE_PATTERN = /(^|\s)@[A-Z0-9_]{2,32}\b/gi;
 
+/**
+ * Redacts PII from analytics query strings by replacing emails, URLs, IPs, phone numbers, and handles with placeholders.
+ * @param value - The raw search query string to sanitize
+ * @returns Sanitized query with PII replaced, normalized, and truncated to 240 characters
+ */
 export function sanitizeAnalyticsQuery(value: string) {
   return value
     .normalize("NFKC")

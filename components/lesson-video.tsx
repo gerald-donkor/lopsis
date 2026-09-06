@@ -134,6 +134,10 @@ type LessonVideoProps = {
   videoUrl: string;
 };
 
+/**
+ * Renders the lesson's embedded video player with provider-specific playback, progress tracking, and analytics.
+ * Player remounts when video source or playback context changes to ensure correct initialization.
+ */
 export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, lessonSlug, lessonTitle, startSeconds, videoUrl }: LessonVideoProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playedRef = useRef(false);

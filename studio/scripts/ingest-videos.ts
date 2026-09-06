@@ -393,6 +393,12 @@ async function fetchVimeo(parsed: ParsedVideoSource): Promise<ExtractedVideo | n
   }
 }
 
+/**
+ * Fetches video metadata, chapters, and captions from Bunny CDN for ingestion.
+ * Requires public unsigned playback to access caption tracks.
+ * @param parsed - The parsed video source containing provider ID (libraryId/videoId) and normalized URL
+ * @returns Extracted video with chapters and transcript chunks, or null if no captions are available
+ */
 async function fetchBunny(parsed: ParsedVideoSource): Promise<ExtractedVideo | null> {
   const [libraryId, videoId] = parsed.providerId.split('/')
   const playRes = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/play`, {
@@ -464,6 +470,10 @@ async function extractVideo(videoUrl: string): Promise<ExtractedVideo | null> {
   }
 }
 
+/**
+ * Orchestrates the video ingestion pass: loads lessons, filters already-ingested videos by normalized URL,
+ * and runs extraction workers concurrently to fetch and store video metadata.
+ */
 async function run() {
   const lessons = await client.fetch<Array<{_id: string; slug: string; videoUrl: string}>>(
     `*[_type == "lesson" && defined(videoUrl) && (!defined($slug) || slug.current == $slug)]{_id, "slug": slug.current, videoUrl}`,
