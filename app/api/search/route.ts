@@ -1,7 +1,10 @@
 import {google} from '@ai-sdk/google'
 import {generateText, Output} from 'ai'
-import {NextResponse} from 'next/server'
+import {after, NextResponse} from 'next/server'
 import {ZodError} from 'zod'
+import {ANALYTICS_EVENTS} from '@/lib/analytics/events'
+import {sanitizeAnalyticsQuery} from '@/lib/analytics/privacy'
+import {captureServerEvent} from '@/lib/posthog-server'
 import {createSearchMcpClient} from '@/lib/search/context'
 import {groundSearchCandidates} from '@/lib/search/ground-results'
 import {buildSearchTermSystemPrompt} from '@/lib/search/prompt'
@@ -145,6 +148,10 @@ export async function POST(request: Request) {
   let videoRowCount: number | undefined
   let candidateCount: number | undefined
   let groundedResultCount: number | undefined
+  let groundedCourseCount: number | undefined
+  let lessonResultCount: number | undefined
+  let videoResultCount: number | undefined
+  let validatedQuery: string | undefined
   let status: SearchTimingStatus = 'failed'
   let deadlineReached = false
   const controller = new AbortController()
@@ -165,6 +172,7 @@ export async function POST(request: Request) {
     }
     const body = JSON.parse(rawBody)
     const {query} = searchRequestSchema.parse(body)
+    validatedQuery = query
     if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
       status = 'not-configured'
       return NextResponse.json({error: 'Learning search is not configured yet.'}, {status: 503})
@@ -221,12 +229,15 @@ export async function POST(request: Request) {
     const results = await groundSearchCandidates(candidates, controller.signal)
     groundingFinishedAt = performance.now()
     groundedResultCount = results.length
+    groundedCourseCount = new Set(results.map((item) => item.courseId)).size
+    lessonResultCount = results.filter((result) => result.kind === 'lesson').length
+    videoResultCount = results.length - lessonResultCount
     const response = searchResponseSchema.parse({
       version: 1,
       query,
       resultCount: results.length,
-      courseCount: new Set(results.map((item) => item.courseId)).size,
-      sortOptions: ['relevance'],
+      courseCount: groundedCourseCount,
+      sortOptions: ['relevance', 'title', 'course'],
       results,
     })
     status = 'succeeded'
@@ -251,9 +262,10 @@ export async function POST(request: Request) {
     request.signal.removeEventListener('abort', cancelFromCaller)
     await mcpClient?.close().catch(() => undefined)
     const finishedAt = performance.now()
+    const totalMs = Math.round(finishedAt - startedAt)
     console.info('Lopsis search timing', {
       status,
-      totalMs: Math.round(finishedAt - startedAt),
+      totalMs,
       setupMs: setupStartedAt === null ? undefined : roundedDuration(setupStartedAt, setupFinishedAt),
       agentMs: agentStartedAt === null ? undefined : roundedDuration(agentStartedAt, agentFinishedAt),
       groundingMs: groundingStartedAt === null ? undefined : roundedDuration(groundingStartedAt, groundingFinishedAt),
@@ -263,6 +275,49 @@ export async function POST(request: Request) {
       videoRowCount,
       candidateCount,
       groundedResultCount,
+    })
+
+    after(async () => {
+      if (status === 'succeeded' && validatedQuery !== undefined) {
+        const properties = {
+          query: sanitizeAnalyticsQuery(validatedQuery),
+          query_length: validatedQuery.length,
+          result_count: groundedResultCount ?? 0,
+          course_count: groundedCourseCount ?? 0,
+          lesson_result_count: lessonResultCount ?? 0,
+          video_result_count: videoResultCount ?? 0,
+          duration_ms: totalMs,
+        }
+
+        await captureServerEvent({
+          request,
+          event: ANALYTICS_EVENTS.searchPerformed,
+          properties,
+        })
+        if ((groundedResultCount ?? 0) === 0) {
+          await captureServerEvent({
+            request,
+            event: ANALYTICS_EVENTS.searchZeroResults,
+            properties: {
+              query: sanitizeAnalyticsQuery(validatedQuery),
+              query_length: validatedQuery.length,
+              duration_ms: totalMs,
+            },
+          })
+        }
+        return
+      }
+
+      await captureServerEvent({
+        request,
+        event: ANALYTICS_EVENTS.searchFailed,
+        properties: {
+          status,
+          failure_type: status,
+          duration_ms: totalMs,
+          query_length: validatedQuery?.length,
+        },
+      })
     })
   }
 }

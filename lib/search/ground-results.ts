@@ -73,6 +73,7 @@ export async function groundSearchCandidates(candidates: SearchCandidate[], sign
     if (!courseModule || moduleIndex < 0 || lessonIndex < 0) continue
 
     const base = {
+      lessonId: lesson._id,
       lessonSlug: lesson.slug,
       lessonTitle: lesson.title,
       courseId: course._id,
@@ -102,9 +103,17 @@ export async function groundSearchCandidates(candidates: SearchCandidate[], sign
     const id = `video:${lesson._id}:${candidate.startSeconds}`
     if (seen.has(id)) continue
     seen.add(id)
-    const nextChapter = candidate.matchSource === 'chapter' ? chapters.find((chapter) => chapter.startSeconds > candidate.startSeconds) : null
-    const remaining = Math.max(1, (lesson.durationSeconds ?? candidate.startSeconds + 30) - candidate.startSeconds)
-    const clipLengthSeconds = Math.max(1, Math.min(remaining, nextChapter ? nextChapter.startSeconds - candidate.startSeconds : 30))
+    if (lesson.durationSeconds != null && candidate.startSeconds >= lesson.durationSeconds) continue
+    const nextChapter = candidate.matchSource === 'chapter'
+      ? [...chapters].sort((a, b) => a.startSeconds - b.startSeconds).find((chapter) => chapter.startSeconds > candidate.startSeconds)
+      : null
+    const endSeconds = nextChapter
+      ? Math.min(nextChapter.startSeconds, lesson.durationSeconds ?? nextChapter.startSeconds)
+      : lesson.durationSeconds
+    // A transcript chunk has no stored end time. Do not invent a clip length.
+    const clipLengthSeconds = candidate.matchSource === 'chapter' && endSeconds != null
+      ? Math.floor(endSeconds - candidate.startSeconds) || null
+      : null
     const momentText = 'label' in moment ? moment.label : moment.text
     results.push({...base, id, kind: 'video', description: compactDescription(momentText, lesson.title), posterUrl: lesson.posterUrl, startSeconds: candidate.startSeconds, clipLengthSeconds, matchSource: candidate.matchSource})
   }
