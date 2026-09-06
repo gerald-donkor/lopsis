@@ -10,13 +10,12 @@ import {groundSearchCandidates} from '@/lib/search/ground-results'
 import {buildSearchTermSystemPrompt} from '@/lib/search/prompt'
 import {
   lessonSearchRowsSchema,
-  searchCandidatesSchema,
   searchRequestSchema,
   searchResponseSchema,
   searchTermsSchema,
   videoSearchRowsSchema,
-  type SearchCandidate,
 } from '@/lib/search/schema'
+import {candidatesFromRows} from '@/lib/search/timestamp-resolution'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -70,12 +69,12 @@ function buildVideoQuery(terms: string[], learnerQuery: string) {
   )] {
     "videoId": _id,
     "lessonIds": *[_type == "lesson" && videoUrl == ^.url]._id,
-    "chapterMatches": chapters[${chapterFilter}] {
+    "chapterMatches": coalesce(chapters[${chapterFilter}] {
       startSeconds,
       "exactLabelMatch": lower(label) == ${exactQuery}
-    },
+    }, []),
     "chunkMatches": select(
-      count(chapters[${chapterFilter}]) == 0 => chunks[${chunkFilter}][0...5] {startSeconds},
+      coalesce(count(chapters[${chapterFilter}]), 0) == 0 => coalesce(chunks[${chunkFilter}][0...5] {startSeconds}, []),
       []
     )
   }`
@@ -92,45 +91,6 @@ function parseMcpRows<T>(result: unknown, parse: (value: unknown) => T): T {
   if (!text) throw new Error('Learning search query returned no data')
   const payload = JSON.parse(text) as {result?: unknown}
   return parse(payload.result)
-}
-
-function lessonRelevance(row: ReturnType<typeof lessonSearchRowsSchema.parse>[number]) {
-  if (row.exactTitleMatch) return 100
-  if (row.titleMatch) return row.keyPointsMatch || row.notesMatch ? 94 : 90
-  if (row.keyPointsMatch) return row.notesMatch ? 79 : 75
-  return 60
-}
-
-function candidatesFromRows(
-  lessonRows: ReturnType<typeof lessonSearchRowsSchema.parse>,
-  videoRows: ReturnType<typeof videoSearchRowsSchema.parse>,
-) {
-  const candidates: SearchCandidate[] = lessonRows.map((row) => ({
-    kind: 'lesson',
-    lessonId: row.lessonId,
-    relevance: lessonRelevance(row),
-  }))
-
-  for (const row of videoRows) {
-    const moments = row.chapterMatches.length > 0 ? row.chapterMatches : row.chunkMatches
-    const matchSource = row.chapterMatches.length > 0 ? 'chapter' as const : 'chunk' as const
-    for (const lessonId of row.lessonIds) {
-      for (const moment of moments) {
-        candidates.push({
-          kind: 'video',
-          lessonId,
-          videoId: row.videoId,
-          startSeconds: moment.startSeconds,
-          matchSource,
-          relevance: matchSource === 'chapter' && 'exactLabelMatch' in moment
-            ? (moment.exactLabelMatch ? 98 : 88)
-            : 70,
-        })
-      }
-    }
-  }
-
-  return searchCandidatesSchema.parse({candidates}).candidates
 }
 
 export async function POST(request: Request) {
