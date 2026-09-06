@@ -134,12 +134,17 @@ type LessonVideoProps = {
   videoUrl: string;
 };
 
+/**
+ * Renders the lesson's embedded video player with provider-specific playback, progress tracking, and analytics.
+ * Player remounts when video source or playback context changes to ensure correct initialization.
+ */
 export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, lessonSlug, lessonTitle, startSeconds, videoUrl }: LessonVideoProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playedRef = useRef(false);
   const failuresRef = useRef(new Set<string>());
   const reachedDepthsRef = useRef(new Set<number>());
   const embed = useMemo(() => createEmbedUrl(videoUrl, startSeconds), [startSeconds, videoUrl]);
+  const playerKey = JSON.stringify([videoUrl, embed?.src, courseId, courseSlug, durationSeconds, lessonId, lessonSlug, startSeconds]);
 
   useEffect(() => {
     posthog.capture(ANALYTICS_EVENTS.lessonViewed, {
@@ -300,6 +305,7 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
   return (
     <div className="lesson-video-frame">
       <iframe
+        key={playerKey}
         ref={iframeRef}
         src={embed.src}
         title={`${lessonTitle} video on ${embed.provider}`}
