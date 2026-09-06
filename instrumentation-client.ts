@@ -12,7 +12,14 @@ if (!token) {
   posthog.init(token, {
     api_host: "/ingest",
     ui_host: "https://us.posthog.com",
-    defaults: "2026-01-30",
+    defaults: "2026-05-30",
+    tracing_headers: [window.location.hostname],
+    mask_personal_data_properties: true,
+    custom_personal_data_properties: ["q"],
+    session_recording: {
+      maskAllInputs: true,
+      maskTextSelector: ".search-heading h1",
+    },
     capture_exceptions: true,
     debug: process.env.NODE_ENV === "development",
   });
