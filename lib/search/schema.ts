@@ -31,8 +31,8 @@ const timestampMatchSchema = z.object({
 export const videoSearchRowsSchema = z.array(z.object({
   videoId: z.string().min(1).max(240),
   lessonIds: z.array(z.string().min(1).max(200)).max(100),
-  chapterMatches: z.array(timestampMatchSchema).max(500),
-  chunkMatches: z.array(z.object({startSeconds: z.number().int().min(0)})).max(5),
+  chapterMatches: z.array(timestampMatchSchema).max(500).nullish().transform((val) => val ?? []),
+  chunkMatches: z.array(z.object({startSeconds: z.number().int().min(0)})).max(5).nullish().transform((val) => val ?? []),
 })).max(2_000)
 
 const candidateBase = z.object({

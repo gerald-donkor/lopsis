@@ -70,12 +70,12 @@ function buildVideoQuery(terms: string[], learnerQuery: string) {
   )] {
     "videoId": _id,
     "lessonIds": *[_type == "lesson" && videoUrl == ^.url]._id,
-    "chapterMatches": chapters[${chapterFilter}] {
+    "chapterMatches": coalesce(chapters[${chapterFilter}] {
       startSeconds,
       "exactLabelMatch": lower(label) == ${exactQuery}
-    },
+    }, []),
     "chunkMatches": select(
-      count(chapters[${chapterFilter}]) == 0 => chunks[${chunkFilter}][0...5] {startSeconds},
+      coalesce(count(chapters[${chapterFilter}]), 0) == 0 => coalesce(chunks[${chunkFilter}][0...5] {startSeconds}, []),
       []
     )
   }`

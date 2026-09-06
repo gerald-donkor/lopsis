@@ -11,12 +11,14 @@ type YouTubePlayerInstance = {
   destroy(): void;
   getCurrentTime(): number;
   getDuration(): number;
+  seekTo(seconds: number, allowSeekAhead?: boolean): void;
 };
 type YouTubePlayerEvent = { data: number; target: YouTubePlayerInstance };
 type BunnyCallback = (data?: string | TimingData) => void;
 type BunnyPlayer = {
   on(event: string, callback: BunnyCallback): void;
   off(event: string, callback: BunnyCallback): void;
+  setCurrentTime?(seconds: number): void;
 };
 
 declare global {
@@ -104,7 +106,7 @@ function createEmbedUrl(videoUrl: string, startSeconds: number): VideoEmbed | nu
       const libraryId = parts.indexOf("embed") >= 0 ? parts[parts.indexOf("embed") + 1] : parts[0];
       const videoId = parts.indexOf("embed") >= 0 ? parts[parts.indexOf("embed") + 2] : parts[1];
       if (!libraryId || !videoId || !/^[\w-]+$/.test(libraryId) || !/^[\w-]+$/.test(videoId)) return null;
-      return { provider: "Bunny", src: `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?start=${start}` };
+      return { provider: "Bunny", src: `https://iframe.mediadelivery.net/embed/${libraryId}/${videoId}?t=${start}&start=${start}` };
     }
   } catch {
     return null;
@@ -239,7 +241,11 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
           if (!window.YT?.Player) throw new Error("player_api_unavailable");
           youtubePlayer = new window.YT.Player(iframe, {
             events: {
-              onReady: () => undefined,
+              onReady: (event) => {
+                if (startSeconds > 0) {
+                  event.target.seekTo(startSeconds, true);
+                }
+              },
               onError: () => captureFailure("provider_error"),
               onStateChange: (event) => {
                 if (event.data === 1) {
@@ -266,6 +272,13 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
           const { default: VimeoPlayer } = await import("@vimeo/player");
           if (disposed) return;
           vimeoPlayer = new VimeoPlayer(iframe);
+          if (startSeconds > 0) {
+            void vimeoPlayer.ready().then(() => {
+              if (!disposed && vimeoPlayer) {
+                return vimeoPlayer.setCurrentTime(startSeconds);
+              }
+            }).catch(() => undefined);
+          }
           vimeoPlayer.on("play", (data) => recordPlay(data.seconds, data.duration));
           vimeoPlayer.on("timeupdate", (data) => recordProgress(data.seconds, data.duration));
           vimeoPlayer.on("ended", (data) => recordCompleted(data.seconds, data.duration));
@@ -277,6 +290,13 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
         if (disposed) return;
         if (!window.playerjs?.Player) throw new Error("player_api_unavailable");
         bunnyPlayer = new window.playerjs.Player(iframe);
+        if (startSeconds > 0) {
+          bunnyPlayer.on("ready", () => {
+            if (!disposed && bunnyPlayer && typeof bunnyPlayer.setCurrentTime === "function") {
+              bunnyPlayer.setCurrentTime(startSeconds);
+            }
+          });
+        }
         const onPlay: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordPlay(data.seconds, data.duration); };
         const onTimeUpdate: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordProgress(data.seconds ?? 0, data.duration ?? durationSeconds ?? 0); };
         const onEnded: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordCompleted(data.seconds ?? data.duration ?? 0, data.duration ?? durationSeconds ?? 0); };
