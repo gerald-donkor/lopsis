@@ -49,14 +49,28 @@ type PlayerResponse = {
     }
   }
 }
+type BunnyPlayData = {
+  tokenAuthEnabled?: boolean
+  videoPlaylistUrl?: string | null
+  video?: {
+    captions?: Array<{label?: string; srclang?: string}> | null
+    chapters?: Array<{start?: number; title?: string}> | null
+    isPublic?: boolean
+    title?: string
+  }
+}
 
 const client = getCliClient({apiVersion: '2026-09-02'})
 const execFileAsync = promisify(execFile)
+const DEFAULT_CONCURRENCY = 2
 const dryRun = process.argv.includes('--dry-run') || process.env.LOPSIS_INGEST_DRY_RUN === '1'
 const force = process.argv.includes('--force') || process.env.LOPSIS_INGEST_FORCE === '1'
 const requestedSlug = process.argv.find((arg) => arg.startsWith('--slug='))?.slice('--slug='.length) || process.env.LOPSIS_INGEST_SLUG
 const concurrencyArg = process.argv.find((arg) => arg.startsWith('--concurrency='))?.slice('--concurrency='.length)
-const concurrency = Math.max(1, parseInt(concurrencyArg || process.env.LOPSIS_INGEST_CONCURRENCY || '2', 10))
+const parsedConcurrency = Number(concurrencyArg ?? process.env.LOPSIS_INGEST_CONCURRENCY ?? DEFAULT_CONCURRENCY)
+const concurrency = Number.isFinite(parsedConcurrency) && Number.isInteger(parsedConcurrency) && parsedConcurrency > 0
+  ? parsedConcurrency
+  : DEFAULT_CONCURRENCY
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -380,8 +394,58 @@ async function fetchVimeo(parsed: ParsedVideoSource): Promise<ExtractedVideo | n
 }
 
 async function fetchBunny(parsed: ParsedVideoSource): Promise<ExtractedVideo | null> {
-  // Bunny embeds: if captions track URL is configured, parse it
-  return null
+  const [libraryId, videoId] = parsed.providerId.split('/')
+  const playRes = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/play`, {
+    headers: {accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; LopsisIngest/1.0)'},
+  })
+  if (playRes.status === 401 || playRes.status === 403) {
+    throw new Error('Bunny captions require public unsigned playback')
+  }
+  if (!playRes.ok) {
+    throw new Error(`Bunny play data returned ${playRes.status}`)
+  }
+
+  const data = await playRes.json() as BunnyPlayData
+  if (data.tokenAuthEnabled || data.video?.isPublic === false) {
+    throw new Error('Bunny captions require public unsigned playback')
+  }
+
+  const tracks = data.video?.captions ?? []
+  const track = tracks.find((candidate) => candidate.srclang?.toLowerCase().startsWith('en'))
+    ?? tracks.find((candidate) => candidate.srclang)
+  if (!track?.srclang || !data.videoPlaylistUrl) {
+    return null
+  }
+
+  const captionsUrl = new URL(`captions/${encodeURIComponent(track.srclang)}.vtt`, data.videoPlaylistUrl)
+  if (captionsUrl.protocol !== 'https:') {
+    throw new Error('Bunny returned an invalid public caption URL')
+  }
+
+  const captionsRes = await fetch(captionsUrl)
+  if (captionsRes.status === 401 || captionsRes.status === 403) {
+    throw new Error('Bunny captions require public unsigned playback')
+  }
+  if (!captionsRes.ok) {
+    throw new Error(`Bunny subtitle download returned ${captionsRes.status}`)
+  }
+
+  const chunks = cuesToChunks(parseWebVtt(await captionsRes.text()))
+  const chapters = (data.video?.chapters ?? []).flatMap((chapter) => {
+    const label = chapter.title?.trim().slice(0, 240)
+    return label && typeof chapter.start === 'number' && Number.isFinite(chapter.start) && chapter.start >= 0
+      ? [{startSeconds: Math.floor(chapter.start), label}]
+      : []
+  })
+
+  return {
+    provider: 'bunny',
+    providerId: parsed.providerId,
+    normalizedUrl: parsed.normalizedUrl,
+    title: data.video?.title,
+    chapters,
+    chunks,
+  }
 }
 
 async function extractVideo(videoUrl: string): Promise<ExtractedVideo | null> {
@@ -410,7 +474,7 @@ async function run() {
     ? new Set<string>()
     : force
       ? new Set<string>()
-      : new Set(await client.fetch<string[]>(`*[_type == "video"].url`))
+      : new Set((await client.fetch<string[]>(`*[_type == "video"].url`)).map((url) => parseVideoUrl(url)?.normalizedUrl ?? url))
 
   let written = 0
   let skipped = 0
@@ -422,7 +486,8 @@ async function run() {
       cursor += 1
       const lesson = lessons[index]
       try {
-        if (!force && existingUrls.has(lesson.videoUrl)) {
+        const normalizedLessonUrl = parseVideoUrl(lesson.videoUrl)?.normalizedUrl ?? lesson.videoUrl
+        if (!force && existingUrls.has(normalizedLessonUrl)) {
           console.log(`Already ingested ${lesson.slug}`)
           continue
         }
@@ -466,7 +531,7 @@ async function run() {
     }
   }
 
-  const workerCount = Math.min(concurrency, lessons.length)
+  const workerCount = lessons.length === 0 ? 0 : Math.max(1, Math.min(concurrency, lessons.length))
   await Promise.all(Array.from({length: workerCount}, () => processLessons()))
   console.log(`Complete: ${written} ${dryRun ? 'ready' : 'written'}, ${skipped} skipped`)
 }

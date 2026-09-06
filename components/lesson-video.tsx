@@ -140,6 +140,7 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
   const failuresRef = useRef(new Set<string>());
   const reachedDepthsRef = useRef(new Set<number>());
   const embed = useMemo(() => createEmbedUrl(videoUrl, startSeconds), [startSeconds, videoUrl]);
+  const playerKey = JSON.stringify([videoUrl, embed?.src, courseId, courseSlug, durationSeconds, lessonId, lessonSlug, startSeconds]);
 
   useEffect(() => {
     posthog.capture(ANALYTICS_EVENTS.lessonViewed, {
@@ -300,6 +301,7 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
   return (
     <div className="lesson-video-frame">
       <iframe
+        key={playerKey}
         ref={iframeRef}
         src={embed.src}
         title={`${lessonTitle} video on ${embed.provider}`}

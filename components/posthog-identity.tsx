@@ -19,10 +19,8 @@ export function PostHogIdentity() {
       return;
     }
 
-    if (identifiedUserId.current) {
-      posthog.reset();
-      identifiedUserId.current = null;
-    }
+    posthog.reset();
+    identifiedUserId.current = null;
   }, [isLoaded, isSignedIn, userId]);
 
   return null;
