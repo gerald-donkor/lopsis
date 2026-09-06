@@ -6,6 +6,8 @@ import { PortableText, type PortableTextComponents } from "@portabletext/react";
 import type { LESSON_BY_SLUG_QUERY_RESULT } from "@/sanity.types";
 import { SiteHeader } from "@/components/site-header";
 import { LessonVideo } from "@/components/lesson-video";
+import posthog from "posthog-js";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 
 type Lesson = NonNullable<LESSON_BY_SLUG_QUERY_RESULT> & {
   module: { moduleIndex: number; lessonIndex: number; moduleNumber: number; lessonNumber: number } | null;
@@ -60,6 +62,13 @@ export function LessonPage({ lesson, startSeconds }: { lesson: Lesson; startSeco
   const summary = firstParagraph(lesson.notes);
   const level = formatLevel(course?.level);
 
+  const analyticsContext = {
+    course_id: course?._id,
+    course_slug: course?.slug,
+    lesson_id: lesson._id,
+    lesson_slug: lesson.slug,
+  };
+
   function toggleModule(index: number) { setExpandedModules((current) => { const nextSet = new Set(current); if (nextSet.has(index)) nextSet.delete(index); else nextSet.add(index); return nextSet; }); }
 
   return <div className="lesson-shell"><div className="lesson-canvas">
@@ -81,9 +90,9 @@ export function LessonPage({ lesson, startSeconds }: { lesson: Lesson; startSeco
       <main className="lesson-main">
         <nav className="lesson-breadcrumb" aria-label="Breadcrumb"><Link href="/courses">All Courses</Link><span>›</span>{course && <><Link href={`/courses/${course.slug}`}>{course.title}</Link><span>›</span></>}{lesson.module && <><span>{modules[lesson.module.moduleIndex]?.title}</span><span>›</span></>}<b>{lesson.title}</b></nav>
         <section className="lesson-header"><p>Lesson {lesson.module?.moduleNumber ?? 1}.{lesson.module?.lessonNumber ?? 1}</p><div><h1>{lesson.title}</h1><button type="button" aria-label="Bookmark lesson"><Bookmark /></button></div>{summary && <p className="lesson-summary">{summary}</p>}<div className="lesson-meta"><span><Clock /> {formatDuration(lesson.durationSeconds)}</span>{level && <span><Level /> {level}</span>}<span><Students /> {formatStudents(lesson.studentCount)} students</span></div></section>
-        <LessonVideo lessonSlug={lesson.slug} lessonTitle={lesson.title} videoUrl={lesson.videoUrl} startSeconds={startSeconds} />
-        <section className="lesson-content"><div className="lesson-tabs" role="tablist" aria-label="Lesson details"><button type="button" id="lesson-content-tab" role="tab" aria-selected={tab === "content"} aria-controls="lesson-content-panel" onClick={() => setTab("content")}>Lesson Content</button><button type="button" id="lesson-notes-tab" role="tab" aria-selected={tab === "notes"} aria-controls="lesson-content-panel" onClick={() => setTab("notes")}>Notes</button></div><div id="lesson-content-panel" role="tabpanel" aria-labelledby={tab === "content" ? "lesson-content-tab" : "lesson-notes-tab"} className="lesson-prose">{tab === "content" && <><h2>Overview</h2>{lesson.notes && <PortableText value={lesson.notes} components={portableTextComponents} />}{lesson.keyPoints?.length ? <section className="lesson-key-points"><h3>In this lesson you will:</h3><ul>{lesson.keyPoints.map((point) => <li key={point}><Check />{point}</li>)}</ul></section> : null}{lesson.proTip && <aside className="lesson-pro-tip"><Tip /><div><strong>Pro Tip</strong><p>{lesson.proTip}</p></div></aside>}</>}{tab === "notes" && (lesson.notes ? <PortableText value={lesson.notes} components={portableTextComponents} /> : <p>No notes are available for this lesson.</p>)}</div></section>
-        {lesson.resources?.length ? <section className="lesson-resources"><h2>Resources</h2><div>{lesson.resources.map((resource) => <a key={resource._key} href={resource.url} target="_blank" rel="noreferrer noopener"><ResourceIcon type={resource.type} /><span><strong>{resource.title}</strong><small>{resource.description}</small></span><External /></a>)}</div></section> : null}
+        <LessonVideo courseId={course?._id ?? null} courseSlug={course?.slug ?? null} durationSeconds={lesson.durationSeconds} lessonId={lesson._id} lessonSlug={lesson.slug} lessonTitle={lesson.title} videoUrl={lesson.videoUrl} startSeconds={startSeconds} />
+        <section className="lesson-content"><div className="lesson-tabs" role="tablist" aria-label="Lesson details"><button type="button" id="lesson-content-tab" role="tab" aria-selected={tab === "content"} aria-controls="lesson-content-panel" onClick={() => { if (tab !== "content") posthog.capture(ANALYTICS_EVENTS.lessonTabSelected, { ...analyticsContext, tab: "content" }); setTab("content"); }}>Lesson Content</button><button type="button" id="lesson-notes-tab" role="tab" aria-selected={tab === "notes"} aria-controls="lesson-content-panel" onClick={() => { if (tab !== "notes") posthog.capture(ANALYTICS_EVENTS.lessonTabSelected, { ...analyticsContext, tab: "notes" }); setTab("notes"); }}>Notes</button></div><div id="lesson-content-panel" role="tabpanel" aria-labelledby={tab === "content" ? "lesson-content-tab" : "lesson-notes-tab"} className="lesson-prose">{tab === "content" && <><h2>Overview</h2>{lesson.notes && <PortableText value={lesson.notes} components={portableTextComponents} />}{lesson.keyPoints?.length ? <section className="lesson-key-points"><h3>In this lesson you will:</h3><ul>{lesson.keyPoints.map((point) => <li key={point}><Check />{point}</li>)}</ul></section> : null}{lesson.proTip && <aside className="lesson-pro-tip"><Tip /><div><strong>Pro Tip</strong><p>{lesson.proTip}</p></div></aside>}</>}{tab === "notes" && (lesson.notes ? <PortableText value={lesson.notes} components={portableTextComponents} /> : <p>No notes are available for this lesson.</p>)}</div></section>
+        {lesson.resources?.length ? <section className="lesson-resources"><h2>Resources</h2><div>{lesson.resources.map((resource, index) => <a key={resource._key} href={resource.url} target="_blank" rel="noreferrer noopener" onClick={() => posthog.capture(ANALYTICS_EVENTS.lessonResourceOpened, { ...analyticsContext, resource_key: resource._key, resource_index: index + 1, resource_type: resource.type })}><ResourceIcon type={resource.type} /><span><strong>{resource.title}</strong><small>{resource.description}</small></span><External /></a>)}</div></section> : null}
       </main>
     </div>
     <nav className="lesson-pagination" aria-label="Lesson navigation"><div>{previous ? <Link href={`/lessons/${previous.slug}`}><Arrow direction="left" /><span><small>Previous Lesson</small><strong>{previous.title}</strong></span></Link> : <span />}</div><div>{next ? <Link href={`/lessons/${next.slug}`}><span><small>Next Lesson</small><strong>{next.title}</strong></span><Arrow /></Link> : <span />}</div></nav>

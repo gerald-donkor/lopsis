@@ -71,7 +71,7 @@ function CourseCard({ course }: { course: Course }) {
             <span>{formatDuration(course.durationSeconds)}</span>
             <span>{moduleCount} {moduleCount === 1 ? "module" : "modules"}</span>
           </div>
-          <Link className="catalog-card-action" href={href} aria-label={`View course: ${course.title}`} onClick={() => posthog.capture("all_courses_course_clicked", { course_slug: course.slug, course_title: course.title })}>
+          <Link className="catalog-card-action" href={href} aria-label={`View course: ${course.title}`} onClick={() => posthog.capture("all_courses_course_clicked", { course_id: course._id, course_slug: course.slug })}>
             View course <ArrowRight />
           </Link>
         </div>
