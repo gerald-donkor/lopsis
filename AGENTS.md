@@ -309,8 +309,8 @@ This section contains the comprehensive audit of all pages, features, buttons, a
 
 Below are the 7 implementation tasks in precise dependency order. Use `i` to prompt the next pending task and `y` to execute it.
 
-- [ ] Task 1: Learner Progress Schema, Server API Route & Client State Hook (`prompts/41-learner-progress-schema-and-api.md`)
-- [ ] Task 2: Course Detail Page Progress, Resume & Curriculum Interactivity (`prompts/42-course-detail-progress-and-curriculum-interactivity.md`)
+- [x] Task 1: Learner Progress Schema, Server API Route & Client State Hook (`prompts/41-learner-progress-schema-and-api.md`)
+- [x] Task 2: Course Detail Page Progress, Resume & Curriculum Interactivity (`prompts/42-course-detail-progress-and-curriculum-interactivity.md`)
 - [ ] Task 3: Catalog & Home Page Progress Affordances & Instructor Links (`prompts/43-catalog-home-progress-and-instructor-links.md`)
 - [ ] Task 4: Lesson Page Interactivity, Completion Toggle & Video Resume Persistence (`prompts/44-lesson-page-interactivity-and-video-resume.md`)
 - [ ] Task 5: Instructor Detail Pages (/instructors/[slug]) & Profile UI (`prompts/45-instructor-detail-pages.md`)
