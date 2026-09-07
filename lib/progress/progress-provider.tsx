@@ -7,6 +7,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 
@@ -28,6 +29,15 @@ export function LearnerProgressProvider({
   const { isSignedIn, userId } = useAuth()
   const [records, setRecords] = useState<Record<string, ProgressRecord>>({})
   const [isLoading, setIsLoading] = useState(false)
+  const mutationSeqRef = useRef<Record<string, number>>({})
+
+  const currentAuthKey = isSignedIn && userId ? userId : null
+  const [prevAuthKey, setPrevAuthKey] = useState<string | null>(currentAuthKey)
+
+  if (prevAuthKey !== currentAuthKey) {
+    setPrevAuthKey(currentAuthKey)
+    setRecords({})
+  }
 
   const refresh = useCallback(async () => {
     if (!isSignedIn) {
@@ -56,7 +66,7 @@ export function LearnerProgressProvider({
   }, [isSignedIn])
 
   useEffect(() => {
-    if (!isSignedIn) {
+    if (!isSignedIn || !userId) {
       return
     }
 
@@ -131,13 +141,15 @@ export function LearnerProgressProvider({
         return false
       }
 
+      const seq = (mutationSeqRef.current[courseId] || 0) + 1
+      mutationSeqRef.current[courseId] = seq
+
       const existingRecord = records[courseId]
       const wasCompleted =
         existingRecord?.completedLessonIds?.includes(lessonId) ?? false
       const targetCompleted = completed !== undefined ? completed : !wasCompleted
 
       // Optimistic update
-      const previousRecords = { ...records }
       const existingCompleted = existingRecord?.completedLessonIds || []
       const newCompleted = targetCompleted
         ? Array.from(new Set([...existingCompleted, lessonId]))
@@ -187,17 +199,29 @@ export function LearnerProgressProvider({
         }
 
         if (data.record && data.record.courseId) {
-          setRecords((prev) => ({
-            ...prev,
-            [data.record.courseId]: data.record,
-          }))
+          if (mutationSeqRef.current[courseId] === seq) {
+            setRecords((prev) => ({
+              ...prev,
+              [data.record.courseId]: data.record,
+            }))
+          }
         }
 
         return targetCompleted
       } catch (error) {
         console.error('Error toggling lesson completion:', error)
-        // Rollback
-        setRecords(previousRecords)
+        // Scoped rollback: only roll back if this is still the latest mutation for courseId
+        if (mutationSeqRef.current[courseId] === seq) {
+          setRecords((prev) => {
+            const updated = { ...prev }
+            if (existingRecord) {
+              updated[courseId] = existingRecord
+            } else {
+              delete updated[courseId]
+            }
+            return updated
+          })
+        }
         return wasCompleted
       }
     },
@@ -211,6 +235,10 @@ export function LearnerProgressProvider({
       positionSeconds: number,
     ): Promise<void> => {
       if (!isSignedIn) return
+
+      const seq = (mutationSeqRef.current[courseId] || 0) + 1
+      mutationSeqRef.current[courseId] = seq
+      const previousRecord = records[courseId]
 
       // Optimistic update
       setRecords((prev) => {
@@ -241,12 +269,16 @@ export function LearnerProgressProvider({
           }),
         })
 
-        if (response.ok) {
-          const data = (await response.json()) as {
-            success: boolean
-            record: ProgressRecord
-          }
-          if (data.record && data.record.courseId) {
+        if (!response.ok) {
+          throw new Error(`Failed to persist video position: ${response.statusText}`)
+        }
+
+        const data = (await response.json()) as {
+          success: boolean
+          record: ProgressRecord
+        }
+        if (data.record && data.record.courseId) {
+          if (mutationSeqRef.current[courseId] === seq) {
             setRecords((prev) => ({
               ...prev,
               [data.record.courseId]: data.record,
@@ -255,9 +287,21 @@ export function LearnerProgressProvider({
         }
       } catch (error) {
         console.error('Failed to persist video position:', error)
+        // Reconcile optimistic position with canonical record on failure if still latest mutation
+        if (mutationSeqRef.current[courseId] === seq) {
+          setRecords((prev) => {
+            const updated = { ...prev }
+            if (previousRecord) {
+              updated[courseId] = previousRecord
+            } else {
+              delete updated[courseId]
+            }
+            return updated
+          })
+        }
       }
     },
-    [isSignedIn],
+    [isSignedIn, records],
   )
 
   const recordResume = useCallback(
