@@ -193,6 +193,13 @@ export function CoursePage({ course }: { course: Course }) {
     return allLessons[0];
   }, [allLessons, progress.lastLessonId, course._id, isLessonCompleted]);
 
+  const activeResumeLessonId = useMemo(() => {
+    if (!progress.lastLessonId) return undefined;
+    if (isLessonCompleted(course._id, progress.lastLessonId)) return undefined;
+    const exists = allLessons.some((l) => l.id === progress.lastLessonId);
+    return exists ? progress.lastLessonId : undefined;
+  }, [progress.lastLessonId, course._id, isLessonCompleted, allLessons]);
+
   const ctaLabel = useMemo(() => {
     if (progress.completedCount === 0 && !progress.lastLessonId) {
       return "Start Course";
@@ -399,7 +406,7 @@ export function CoursePage({ course }: { course: Course }) {
             <CourseCurriculum
               modules={modules}
               courseId={course._id}
-              activeResumeLessonId={targetLesson?.id}
+              activeResumeLessonId={activeResumeLessonId}
             />
           </section>
         </main>
