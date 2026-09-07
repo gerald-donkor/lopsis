@@ -3,10 +3,15 @@ import test from 'node:test'
 
 import type { BookmarkItem } from './types'
 import {
+  BOOKMARKS_EVENT,
+  getSnapshot,
   isBookmarkedInList,
   parseBookmarks,
+  persistBookmarks,
   readSafeBookmarks,
   removeBookmarkFromList,
+  resetBookmarksCacheForTesting,
+  runSynchronizedMutation,
   toggleBookmarkInList,
 } from './use-bookmarks'
 
@@ -159,6 +164,99 @@ test('bookmarks: readSafeBookmarks falls back when localStorage throws SecurityE
   } finally {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(globalThis as any).window = originalWindow
+  }
+})
+
+test('bookmarks: persistBookmarks updates snapshot and dispatches event when setItem throws', () => {
+  resetBookmarksCacheForTesting()
+  const originalWindow = globalThis.window
+  let dispatchedDetail: unknown = null
+  const testItem: BookmarkItem = {
+    id: 'course-err',
+    type: 'course',
+    title: 'Error Recovery Course',
+    slug: 'error-recovery-course',
+    bookmarkedAt: '2026-09-07T12:00:00.000Z',
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = {
+      localStorage: {
+        getItem: () => null,
+        setItem: () => {
+          throw new Error('QuotaExceededError: storage quota full')
+        },
+      },
+      dispatchEvent: (event: CustomEvent) => {
+        if (event.type === BOOKMARKS_EVENT) {
+          dispatchedDetail = event.detail
+        }
+        return true
+      },
+    }
+
+    persistBookmarks([testItem])
+    assert.deepEqual(dispatchedDetail, [testItem])
+    assert.deepEqual(getSnapshot(), [testItem])
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = originalWindow
+    resetBookmarksCacheForTesting()
+  }
+})
+
+test('bookmarks: runSynchronizedMutation executes and dispatches when storage throws', () => {
+  resetBookmarksCacheForTesting()
+  const originalWindow = globalThis.window
+  let eventDispatched = false
+  const fallback: BookmarkItem[] = [
+    {
+      id: 'existing-item',
+      type: 'lesson',
+      title: 'Existing Lesson',
+      slug: 'existing-lesson',
+      bookmarkedAt: '2026-09-07T12:00:00.000Z',
+    },
+  ]
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = {
+      localStorage: {
+        getItem: () => {
+          throw new Error('SecurityError: Access is denied')
+        },
+        setItem: () => {
+          throw new Error('SecurityError: Access is denied')
+        },
+        removeItem: () => {
+          throw new Error('SecurityError: Access is denied')
+        },
+      },
+      dispatchEvent: (event: CustomEvent) => {
+        if (event.type === BOOKMARKS_EVENT) {
+          eventDispatched = true
+        }
+        return true
+      },
+    }
+
+    const result = runSynchronizedMutation(fallback, (current) => {
+      assert.deepEqual(current, fallback)
+      return {
+        next: [],
+        result: 'cleared',
+      }
+    })
+
+    assert.equal(result, 'cleared')
+    assert.equal(eventDispatched, true)
+    assert.deepEqual(getSnapshot(), [])
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = originalWindow
+    resetBookmarksCacheForTesting()
   }
 })
 
