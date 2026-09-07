@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import posthog from "posthog-js";
@@ -8,36 +8,77 @@ import type { COURSE_BY_SLUG_QUERY_RESULT } from "@/sanity.types";
 import { CourseCurriculum, type CurriculumModule } from "@/components/course-curriculum";
 import { SiteHeader } from "@/components/site-header";
 import { urlFor } from "@/sanity/lib/image";
+import { useLearnerProgress } from "@/lib/progress/use-learner-progress";
+import { useBookmarks } from "@/lib/bookmarks/use-bookmarks";
 
 type Course = NonNullable<COURSE_BY_SLUG_QUERY_RESULT>;
 type IconProps = { className?: string };
 
+/** Renders the arrow used by course calls to action. */
 function ArrowRight({ className }: IconProps) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 12h15M13 5l7 7-7 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 12h15M13 5l7 7-7 7" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
+/** Renders the breadcrumb separator. */
 function ChevronRight() {
-  return <svg viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="m7 4 5 5-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  return (
+    <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <path d="m7 4 5 5-5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
-function Bookmark() {
-  return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.5 3.5h11v17L12 17l-5.5 3.5v-17Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>;
+/** Renders the course bookmark icon in its saved or unsaved state. */
+function Bookmark({ filled = false }: { filled?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} aria-hidden="true">
+      <path d="M6.5 3.5h11v17L12 17l-5.5 3.5v-17Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
+/** Renders the course-level metadata icon. */
 function LevelIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 17v-3M7.7 17v-7M12.3 17V6M17 17V2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>;
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M3 17v-3M7.7 17v-7M12.3 17V6M17 17V2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
 }
 
+/** Renders the course-duration metadata icon. */
 function ClockIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.2" stroke="currentColor" strokeWidth="1.4" /><path d="M10 5.8v4.5l3 1.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>;
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <circle cx="10" cy="10" r="7.2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M10 5.8v4.5l3 1.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
 }
 
+/** Renders the module-count metadata icon. */
 function DocumentIcon() {
-  return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 2.5h7l4 4V17h-11V2.5Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" /><path d="M11.5 2.8v4h3.7" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" /></svg>;
+  return (
+    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M4.5 2.5h7l4 4V17h-11V2.5Z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
+      <path d="M11.5 2.8v4h3.7" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
+/** Renders the learner-count metadata icon. */
 function StudentsIcon() {
-  return <svg viewBox="0 0 22 20" fill="none" aria-hidden="true"><circle cx="8" cy="6" r="3" stroke="currentColor" strokeWidth="1.35" /><path d="M2.7 16c.5-3 2.3-4.7 5.3-4.7s4.8 1.7 5.3 4.7" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" /><path d="M14.5 3.7a2.7 2.7 0 0 1 0 5.2M15.5 11.2c2.3.4 3.7 2 4 4.4" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" /></svg>;
+  return (
+    <svg viewBox="0 0 22 20" fill="none" aria-hidden="true">
+      <circle cx="8" cy="6" r="3" stroke="currentColor" strokeWidth="1.35" />
+      <path d="M2.7 16c.5-3 2.3-4.7 5.3-4.7s4.8 1.7 5.3 4.7" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+      <path d="M14.5 3.7a2.7 2.7 0 0 1 0 5.2M15.5 11.2c2.3.4 3.7 2 4 4.4" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 const outcomePaths: Record<string, React.ReactNode> = {
@@ -51,12 +92,18 @@ const outcomePaths: Record<string, React.ReactNode> = {
   sparkles: <><path d="M12 2.5c.7 4.2 2.8 6.3 7 7-4.2.7-6.3 2.8-7 7-.7-4.2-2.8-6.3-7-7 4.2-.7 6.3-2.8 7-7Z" /><path d="M19 15.5c.3 1.8 1.2 2.7 3 3-1.8.3-2.7 1.2-3 3-.3-1.8-1.2-2.7-3-3 1.8-.3 2.7-1.2 3-3Z" /></>,
 };
 
+/** Resolves a learning-outcome token to its visual icon. */
 function OutcomeIcon({ token }: { token: string }) {
   const paths = outcomePaths[token];
   if (!paths) return <span className="course-outcome-fallback" aria-label={`${token} icon`}>{token.slice(0, 1).toUpperCase()}</span>;
-  return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">{paths && <g stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">{paths}</g>}</svg>;
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      {paths && <g stroke="currentColor" strokeWidth="1.45" strokeLinecap="round" strokeLinejoin="round">{paths}</g>}
+    </svg>
+  );
 }
 
+/** Formats a duration in seconds as a compact hours-and-minutes label. */
 function formatDuration(seconds: number) {
   const minutes = Math.max(0, Math.round(seconds / 60));
   const hours = Math.floor(minutes / 60);
@@ -65,14 +112,17 @@ function formatDuration(seconds: number) {
   return remaining ? `${hours}h ${remaining}m` : `${hours}h`;
 }
 
+/** Formats a stored course level for display. */
 function formatLevel(level: Course["level"]) {
   return level === "all-levels" ? "All levels" : level.charAt(0).toUpperCase() + level.slice(1);
 }
 
+/** Formats a learner count using compact English notation. */
 function formatStudents(count: number) {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(count).toLowerCase();
 }
 
+/** Maps Sanity course modules into the curriculum component's view model. */
 function getCurriculum(course: Course) {
   return (course.modules ?? []).map((module, moduleIndex): CurriculumModule => {
     const lessons = (module.lessons ?? []).filter((lesson): lesson is NonNullable<typeof lesson> => Boolean(lesson?.slug));
@@ -87,22 +137,146 @@ function getCurriculum(course: Course) {
         title: lesson.title,
         slug: lesson.slug,
         duration: formatDuration(lesson.durationSeconds ?? 0),
+        freePreview: Boolean(lesson.freePreview),
       })),
     };
   });
 }
 
+/** Renders an interactive course detail page with progress and bookmarks. */
 export function CoursePage({ course }: { course: Course }) {
+  const { getCourseProgress, isLessonCompleted, recordResume } = useLearnerProgress();
+  const { isBookmarked, toggleBookmark } = useBookmarks();
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     posthog.capture("course_viewed", { course_id: course._id, course_slug: course.slug });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [course.slug]);
 
-  const modules = getCurriculum(course);
-  const totalSeconds = (course.modules ?? []).flatMap((module) => module.lessons ?? []).reduce((sum, lesson) => sum + (lesson?.durationSeconds ?? 0), 0);
-  const firstLesson = modules.flatMap((module) => module.lessons)[0];
-  const firstLessonHref = firstLesson ? `/lessons/${firstLesson.slug}` : "#course-content";
-  const imageSource = course.coverImage?.asset ? urlFor(course.coverImage).width(720).height(820).fit("crop").auto("format").url() : null;
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const modules = useMemo(() => getCurriculum(course), [course]);
+  const allLessons = useMemo(() => modules.flatMap((module) => module.lessons), [modules]);
+  const totalSeconds = useMemo(
+    () =>
+      (course.modules ?? [])
+        .flatMap((module) => module.lessons ?? [])
+        .reduce((sum, lesson) => sum + (lesson?.durationSeconds ?? 0), 0),
+    [course.modules]
+  );
+
+  const progress = getCourseProgress(course._id, allLessons.length);
+
+  const targetLesson = useMemo(() => {
+    if (allLessons.length === 0) return null;
+
+    // 1. If user has a last recorded lesson
+    if (progress.lastLessonId) {
+      const lastIndex = allLessons.findIndex((l) => l.id === progress.lastLessonId);
+      if (lastIndex !== -1) {
+        const last = allLessons[lastIndex];
+        const isCompleted = isLessonCompleted(course._id, last.id);
+        if (!isCompleted) {
+          return last;
+        }
+        // If last was completed, pick the next incomplete lesson
+        const nextIncomplete = allLessons.slice(lastIndex + 1).find((l) => !isLessonCompleted(course._id, l.id));
+        if (nextIncomplete) {
+          return nextIncomplete;
+        }
+      }
+    }
+
+    // 2. Otherwise pick first incomplete lesson in curriculum order
+    const firstIncomplete = allLessons.find((l) => !isLessonCompleted(course._id, l.id));
+    if (firstIncomplete) {
+      return firstIncomplete;
+    }
+
+    // 3. If all completed, return first lesson for review
+    return allLessons[0];
+  }, [allLessons, progress.lastLessonId, course._id, isLessonCompleted]);
+
+  const activeResumeLessonId = useMemo(() => {
+    if (!progress.lastLessonId) return undefined;
+    if (isLessonCompleted(course._id, progress.lastLessonId)) return undefined;
+    const exists = allLessons.some((l) => l.id === progress.lastLessonId);
+    return exists ? progress.lastLessonId : undefined;
+  }, [progress.lastLessonId, course._id, isLessonCompleted, allLessons]);
+
+  const ctaLabel = useMemo(() => {
+    if (progress.completedCount === 0 && !progress.lastLessonId) {
+      return "Start Course";
+    }
+    if (progress.isCompleted) {
+      return "Review Course";
+    }
+    return "Continue Learning";
+  }, [progress.completedCount, progress.lastLessonId, progress.isCompleted]);
+
+  const targetHref = useMemo(() => {
+    if (!targetLesson) return "#course-content";
+    if (
+      progress.lastPositionSeconds &&
+      progress.lastPositionSeconds > 0 &&
+      targetLesson.id === progress.lastLessonId
+    ) {
+      return `/lessons/${targetLesson.slug}?start=${Math.floor(progress.lastPositionSeconds)}`;
+    }
+    return `/lessons/${targetLesson.slug}`;
+  }, [targetLesson, progress.lastPositionSeconds, progress.lastLessonId]);
+
+  /** Records course CTA usage and resume analytics when applicable. */
+  const handleCtaClick = (source: string) => {
+    if (
+      targetLesson &&
+      progress.lastPositionSeconds &&
+      progress.lastPositionSeconds > 0 &&
+      targetLesson.id === progress.lastLessonId
+    ) {
+      void recordResume(course._id, targetLesson.id, progress.lastPositionSeconds);
+    }
+    posthog.capture("course_started", {
+      course_id: course._id,
+      course_slug: course.slug,
+      lesson_id: targetLesson?.id,
+      lesson_slug: targetLesson?.slug,
+      source,
+      is_resume: Boolean(progress.lastLessonId),
+    });
+  };
+
+  const isCurrentBookmarked = isBookmarked(course._id);
+
+  /** Toggles the course bookmark and displays transient confirmation. */
+  const handleToggleBookmark = () => {
+    const isNowBookmarked = toggleBookmark({
+      id: course._id,
+      type: "course",
+      title: course.title,
+      slug: course.slug,
+    });
+    setToastMessage(isNowBookmarked ? "Added to bookmarks" : "Removed from bookmarks");
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 2500);
+  };
+
+  const imageSource = course.coverImage?.asset
+    ? urlFor(course.coverImage).width(720).height(820).fit("crop").auto("format").url()
+    : null;
   const blurDataURL = course.coverImage?.asset?.metadata?.lqip ?? undefined;
 
   return (
@@ -111,19 +285,82 @@ export function CoursePage({ course }: { course: Course }) {
         <SiteHeader />
         <main className="course-main">
           <nav className="course-breadcrumb" aria-label="Breadcrumb">
-            <Link href="/courses">All Courses</Link><ChevronRight /><span aria-current="page">{course.title}</span>
+            <Link href="/courses">All Courses</Link>
+            <ChevronRight />
+            <span aria-current="page">{course.title}</span>
           </nav>
 
           <section className="course-hero" aria-labelledby="course-title">
             <div className="course-cover">
               {imageSource ? (
-                <Image src={imageSource} alt={course.coverImage?.alt || `Cover image for ${course.title}`} fill sizes="(max-width: 700px) calc(100vw - 48px), 280px" placeholder={blurDataURL ? "blur" : "empty"} blurDataURL={blurDataURL} />
-              ) : <span aria-hidden="true">{course.title.slice(0, 1)}</span>}
+                <Image
+                  src={imageSource}
+                  alt={course.coverImage?.alt || `Cover image for ${course.title}`}
+                  fill
+                  sizes="(max-width: 700px) calc(100vw - 48px), 280px"
+                  placeholder={blurDataURL ? "blur" : "empty"}
+                  blurDataURL={blurDataURL}
+                />
+              ) : (
+                <span aria-hidden="true">{course.title.slice(0, 1)}</span>
+              )}
             </div>
             <div className="course-hero-copy">
               {course.popular && <span className="course-popular">Popular</span>}
               <h1 id="course-title">{course.title}</h1>
               <p>{course.summary}</p>
+
+              {course.instructor && (
+                <div className="course-instructor-hero">
+                  <Link
+                    href={`/instructors/${course.instructor.slug}`}
+                    className="course-instructor-avatar-link"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  >
+                    <div className="course-instructor-avatar">
+                      {course.instructor.photo?.asset ? (
+                        <Image
+                          src={urlFor(course.instructor.photo)
+                            .width(80)
+                            .height(80)
+                            .fit("crop")
+                            .auto("format")
+                            .url()}
+                          alt={course.instructor.photo.alt || course.instructor.name}
+                          width={40}
+                          height={40}
+                          placeholder={
+                            course.instructor.photo.asset.metadata?.lqip ? "blur" : "empty"
+                          }
+                          blurDataURL={
+                            course.instructor.photo.asset.metadata?.lqip ?? undefined
+                          }
+                        />
+                      ) : (
+                        <span>{course.instructor.name.slice(0, 1)}</span>
+                      )}
+                    </div>
+                  </Link>
+                  <div className="course-instructor-info">
+                    <span className="course-instructor-label">Taught by</span>
+                    <Link
+                      href={`/instructors/${course.instructor.slug}`}
+                      className="course-instructor-name"
+                    >
+                      {course.instructor.name}
+                    </Link>
+                    {course.instructor.expertise && course.instructor.expertise.length > 0 && (
+                      <span className="course-instructor-expertise">
+                        {Array.isArray(course.instructor.expertise)
+                          ? course.instructor.expertise.join(" · ")
+                          : course.instructor.expertise}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="course-meta" aria-label="Course details">
                 <span><LevelIcon />{formatLevel(course.level)}</span>
                 <span><ClockIcon />{formatDuration(totalSeconds)}</span>
@@ -131,8 +368,26 @@ export function CoursePage({ course }: { course: Course }) {
                 <span><StudentsIcon />{formatStudents(course.studentCount)} students</span>
               </div>
               <div className="course-actions">
-                <Link className="course-primary-action" href={firstLessonHref} onClick={() => posthog.capture("course_started", { course_id: course._id, course_slug: course.slug, source: "course_hero" })}>Continue Learning <ArrowRight /></Link>
-                <button className="course-bookmark" type="button" aria-label="Bookmark course (not saved)"><Bookmark /> Bookmark</button>
+                <Link
+                  className="course-primary-action"
+                  href={targetHref}
+                  onClick={() => handleCtaClick("course_hero")}
+                >
+                  {ctaLabel} <ArrowRight />
+                </Link>
+                <button
+                  className={`course-bookmark ${isCurrentBookmarked ? "is-bookmarked" : ""}`}
+                  type="button"
+                  onClick={handleToggleBookmark}
+                  aria-label={
+                    isCurrentBookmarked
+                      ? `Remove bookmark for ${course.title}`
+                      : `Bookmark ${course.title}`
+                  }
+                  aria-pressed={isCurrentBookmarked}
+                >
+                  <Bookmark filled={isCurrentBookmarked} /> {isCurrentBookmarked ? "Bookmarked" : "Bookmark"}
+                </button>
               </div>
             </div>
           </section>
@@ -144,7 +399,10 @@ export function CoursePage({ course }: { course: Course }) {
                 {course.learningOutcomes.map((outcome) => (
                   <article key={outcome._key}>
                     <OutcomeIcon token={outcome.icon} />
-                    <div><h3>{outcome.title}</h3><p>{outcome.description}</p></div>
+                    <div>
+                      <h3>{outcome.title}</h3>
+                      <p>{outcome.description}</p>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -154,18 +412,50 @@ export function CoursePage({ course }: { course: Course }) {
           <section className="course-content" id="course-content" aria-labelledby="course-content-title">
             <div className="course-content-heading">
               <h2 id="course-content-title">Course Content</h2>
-              <p>{modules.length} {modules.length === 1 ? "module" : "modules"}<span aria-hidden="true">•</span>{formatDuration(totalSeconds)}</p>
+              <p>
+                {modules.length} {modules.length === 1 ? "module" : "modules"}
+                <span aria-hidden="true">•</span>
+                {formatDuration(totalSeconds)}
+              </p>
             </div>
-            <CourseCurriculum modules={modules} />
+            <CourseCurriculum
+              modules={modules}
+              courseId={course._id}
+              activeResumeLessonId={activeResumeLessonId}
+            />
           </section>
         </main>
 
         <div className="course-bottom-glow" aria-hidden="true" />
         <aside className="course-progress-strip" aria-label="Course progress">
-          <div className="course-progress-copy"><span>Your Progress</span><strong>0% <em>complete</em></strong></div>
-          <div className="course-progress-track" role="progressbar" aria-label="Course progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={0}><span /></div>
-          <Link className="course-progress-action" href={firstLessonHref} onClick={() => posthog.capture("course_started", { course_id: course._id, course_slug: course.slug, source: "course_progress_strip" })}>Continue Learning <ArrowRight /></Link>
+          <div className="course-progress-copy">
+            <span>Your Progress</span>
+            <strong>{progress.percentage}% <em>complete</em></strong>
+          </div>
+          <div
+            className="course-progress-track"
+            role="progressbar"
+            aria-label="Course progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress.percentage}
+          >
+            <span style={{ width: `${progress.percentage}%` }} />
+          </div>
+          <Link
+            className="course-progress-action"
+            href={targetHref}
+            onClick={() => handleCtaClick("course_progress_strip")}
+          >
+            {ctaLabel} <ArrowRight />
+          </Link>
         </aside>
+
+        {toastMessage && (
+          <div className="course-toast" role="status" aria-live="polite">
+            {toastMessage}
+          </div>
+        )}
       </div>
     </div>
   );

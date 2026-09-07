@@ -6,6 +6,7 @@ import {course} from './documents/course'
 import {instructor} from './documents/instructor'
 import {lesson} from './documents/lesson'
 import {agentContext} from './documents/agent-context'
+import {progress} from './documents/progress'
 import {video} from './documents/video'
 import {contentImage} from './objects/content-image'
 import {learningOutcome} from './objects/learning-outcome'
@@ -19,6 +20,7 @@ export const schemaTypes: SchemaTypeDefinition[] = [
   category,
   video,
   agentContext,
+  progress,
   courseModule,
   moduleObject,
   learningOutcome,
