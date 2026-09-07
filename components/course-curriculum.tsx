@@ -3,18 +3,22 @@
 import { useState } from "react";
 import Link from "next/link";
 import posthog from "posthog-js";
+import { useLearnerProgress } from "@/lib/progress/use-learner-progress";
+
+export type CurriculumLesson = {
+  id: string;
+  title: string;
+  slug: string;
+  duration: string;
+  freePreview?: boolean;
+};
 
 export type CurriculumModule = {
   key: string;
   title: string;
   summary: string;
   duration: string;
-  lessons: Array<{
-    id: string;
-    title: string;
-    slug: string;
-    duration: string;
-  }>;
+  lessons: CurriculumLesson[];
 };
 
 function Chevron({ expanded = false }: { expanded?: boolean }) {
@@ -25,7 +29,25 @@ function Chevron({ expanded = false }: { expanded?: boolean }) {
   );
 }
 
-export function CourseCurriculum({ modules }: { modules: CurriculumModule[] }) {
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.6" />
+      <path d="m8 12 2.6 2.6L16.5 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function CourseCurriculum({
+  modules,
+  courseId,
+  activeResumeLessonId,
+}: {
+  modules: CurriculumModule[];
+  courseId?: string;
+  activeResumeLessonId?: string;
+}) {
+  const { isLessonCompleted } = useLearnerProgress();
   const [showAll, setShowAll] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const visibleModules = showAll ? modules : modules.slice(0, 3);
@@ -68,15 +90,47 @@ export function CourseCurriculum({ modules }: { modules: CurriculumModule[] }) {
               </button>
               {isExpanded && (
                 <ol className="course-lesson-list" id={panelId}>
-                  {module.lessons.map((lesson, lessonIndex) => (
-                    <li key={lesson.id}>
-                      <Link href={`/lessons/${lesson.slug}`} onClick={() => posthog.capture("curriculum_lesson_clicked", { lesson_id: lesson.id, lesson_slug: lesson.slug, module_index: moduleIndex + 1, lesson_index: lessonIndex + 1 })}>
-                        <span>Lesson {moduleIndex + 1}.{lessonIndex + 1}</span>
-                        <strong>{lesson.title}</strong>
-                        <em>{lesson.duration}</em>
-                      </Link>
-                    </li>
-                  ))}
+                  {module.lessons.map((lesson, lessonIndex) => {
+                    const isCompleted = courseId ? isLessonCompleted(courseId, lesson.id) : false;
+                    const isInProgress = Boolean(
+                      activeResumeLessonId && lesson.id === activeResumeLessonId && !isCompleted
+                    );
+
+                    return (
+                      <li key={lesson.id} className={isCompleted ? "is-completed" : isInProgress ? "is-in-progress" : undefined}>
+                        <Link
+                          href={`/lessons/${lesson.slug}`}
+                          onClick={() =>
+                            posthog.capture("curriculum_lesson_clicked", {
+                              lesson_id: lesson.id,
+                              lesson_slug: lesson.slug,
+                              module_index: moduleIndex + 1,
+                              lesson_index: lessonIndex + 1,
+                            })
+                          }
+                        >
+                          <span className="course-lesson-num">
+                            <span>Lesson {moduleIndex + 1}.{lessonIndex + 1}</span>
+                            {isCompleted && (
+                              <span className="course-lesson-check" title="Completed" aria-label="Completed">
+                                <CheckIcon />
+                              </span>
+                            )}
+                            {isInProgress && (
+                              <i className="status-progress" title="In progress" aria-label="In progress" />
+                            )}
+                          </span>
+                          <span className="course-lesson-info">
+                            <strong>{lesson.title}</strong>
+                            {lesson.freePreview && (
+                              <span className="course-lesson-preview">Free preview</span>
+                            )}
+                          </span>
+                          <em>{lesson.duration}</em>
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ol>
               )}
             </article>
