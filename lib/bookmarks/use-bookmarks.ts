@@ -7,6 +7,7 @@ import type { BookmarkItem, BookmarkType } from './types'
 export const BOOKMARKS_STORAGE_KEY = 'lopsis:bookmarks'
 export const BOOKMARKS_EVENT = 'lopsis:bookmarks:changed'
 
+/** Parses persisted bookmark JSON and discards malformed entries. */
 export function parseBookmarks(raw: string | null): BookmarkItem[] {
   if (!raw) return []
   try {
@@ -26,10 +27,12 @@ export function parseBookmarks(raw: string | null): BookmarkItem[] {
   }
 }
 
+/** Reports whether a bookmark list contains the requested item. */
 export function isBookmarkedInList(list: BookmarkItem[], id: string): boolean {
   return list.some((item) => item.id === id)
 }
 
+/** Adds a missing bookmark or removes an existing bookmark without mutating the list. */
 export function toggleBookmarkInList(
   list: BookmarkItem[],
   item: { id: string; type: BookmarkType; title: string; slug: string },
@@ -52,6 +55,7 @@ export function toggleBookmarkInList(
   }
 }
 
+/** Removes a bookmark by ID without mutating the original list. */
 export function removeBookmarkFromList(
   list: BookmarkItem[],
   id: string,
@@ -59,19 +63,7 @@ export function removeBookmarkFromList(
   return list.filter((b) => b.id !== id)
 }
 
-export function readSafeBookmarks(fallback: BookmarkItem[] = EMPTY_BOOKMARKS): BookmarkItem[] {
-  if (typeof window === 'undefined') {
-    return fallback
-  }
-  try {
-    const raw = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY)
-    if (!raw) return []
-    return parseBookmarks(raw)
-  } catch {
-    return fallback
-  }
-}
-
+/** Persists bookmarks and notifies same-window subscribers. */
 function persistBookmarks(nextBookmarks: BookmarkItem[]) {
   if (typeof window === 'undefined') return
   try {
@@ -91,58 +83,7 @@ let cachedRaw: string | null = null
 let cachedBookmarks: BookmarkItem[] = []
 const EMPTY_BOOKMARKS: BookmarkItem[] = []
 
-export const BOOKMARKS_LOCK_KEY = 'lopsis:bookmarks:lock'
-const LOCK_TIMEOUT_MS = 60
-
-export function runSynchronizedMutation<T>(
-  fallback: BookmarkItem[],
-  mutate: (current: BookmarkItem[]) => { next: BookmarkItem[]; result: T },
-): T {
-  if (typeof window === 'undefined') {
-    const { result } = mutate(fallback)
-    return result
-  }
-
-  const lockId = `${Date.now()}_${Math.random()}`
-  let lockAcquired = false
-
-  try {
-    const deadline = Date.now() + LOCK_TIMEOUT_MS
-    while (Date.now() < deadline) {
-      const lockVal = window.localStorage.getItem(BOOKMARKS_LOCK_KEY)
-      if (!lockVal || Number(lockVal.split(':')[1]) < Date.now()) {
-        window.localStorage.setItem(
-          BOOKMARKS_LOCK_KEY,
-          `${lockId}:${Date.now() + 100}`,
-        )
-        const check = window.localStorage.getItem(BOOKMARKS_LOCK_KEY)
-        if (check?.startsWith(lockId)) {
-          lockAcquired = true
-          break
-        }
-      }
-    }
-  } catch {
-    // If storage access is restricted, continue mutation with fallback
-  }
-
-  try {
-    const current = readSafeBookmarks(fallback)
-    const { next, result } = mutate(current)
-    persistBookmarks(next)
-    return result
-  } finally {
-    if (lockAcquired) {
-      try {
-        const check = window.localStorage.getItem(BOOKMARKS_LOCK_KEY)
-        if (check?.startsWith(lockId)) {
-          window.localStorage.removeItem(BOOKMARKS_LOCK_KEY)
-        }
-      } catch {}
-    }
-  }
-}
-
+/** Returns a stable client snapshot of the current persisted bookmarks. */
 function getSnapshot(): BookmarkItem[] {
   if (typeof window === 'undefined') {
     return EMPTY_BOOKMARKS
@@ -160,21 +101,25 @@ function getSnapshot(): BookmarkItem[] {
   }
 }
 
+/** Returns the empty bookmark snapshot used during server rendering. */
 function getServerSnapshot(): BookmarkItem[] {
   return EMPTY_BOOKMARKS
 }
 
+/** Subscribes to same-window and cross-tab bookmark changes. */
 function subscribe(callback: () => void): () => void {
   if (typeof window === 'undefined') {
     return () => {}
   }
 
+  /** Notifies subscribers when another tab changes bookmark storage. */
   function handleStorage(e: StorageEvent) {
     if (e.key === BOOKMARKS_STORAGE_KEY) {
       callback()
     }
   }
 
+  /** Notifies subscribers when this window changes bookmarks. */
   function handleCustomEvent() {
     callback()
   }
@@ -188,6 +133,7 @@ function subscribe(callback: () => void): () => void {
   }
 }
 
+/** Provides reactive bookmark state and persistence actions. */
 export function useBookmarks() {
   const bookmarks = useSyncExternalStore(
     subscribe,
@@ -195,6 +141,7 @@ export function useBookmarks() {
     getServerSnapshot,
   )
 
+  /** Checks the current bookmark snapshot for an item. */
   const isBookmarked = useCallback(
     (id: string): boolean => {
       return isBookmarkedInList(bookmarks, id)
@@ -202,6 +149,7 @@ export function useBookmarks() {
     [bookmarks],
   )
 
+  /** Toggles an item in persistent bookmark storage. */
   const toggleBookmark = useCallback(
     (item: { id: string; type: BookmarkType; title: string; slug: string }): boolean => {
       return runSynchronizedMutation(bookmarks, (current) => {
@@ -212,6 +160,7 @@ export function useBookmarks() {
     [bookmarks],
   )
 
+  /** Adds an item to persistent bookmark storage if it is not already saved. */
   const addBookmark = useCallback(
     (item: { id: string; type: BookmarkType; title: string; slug: string }): void => {
       runSynchronizedMutation(bookmarks, (current) => {
@@ -225,6 +174,7 @@ export function useBookmarks() {
     [bookmarks],
   )
 
+  /** Removes an item from persistent bookmark storage. */
   const removeBookmark = useCallback(
     (id: string): void => {
       runSynchronizedMutation(bookmarks, (current) => {

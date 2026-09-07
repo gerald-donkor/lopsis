@@ -38,6 +38,7 @@ const progressPayloadSchema = z.discriminatedUnion('action', [
   recordResumeSchema,
 ])
 
+/** Builds a Sanity-safe progress document ID for a learner and course. */
 function getProgressDocId(userId: string, courseId: string): string {
   const cleanUser = userId.replace(/[^a-zA-Z0-9_-]/g, '_')
   const cleanCourse = courseId.replace(/[^a-zA-Z0-9_-]/g, '_')
@@ -56,6 +57,7 @@ const PROGRESS_RECORD_PROJECTION = /* groq */ `
   lastUpdated
 `
 
+/** Returns all persisted course progress records for the signed-in learner. */
 export async function GET() {
   try {
     const { userId } = await auth()
@@ -80,6 +82,7 @@ export async function GET() {
   }
 }
 
+/** Applies a validated progress mutation for the signed-in learner. */
 export async function POST(request: Request) {
   try {
     const { userId } = await auth()

@@ -58,6 +58,7 @@ export const progress = defineType({
       userId: 'userId',
       lastUpdated: 'lastUpdated',
     },
+    /** Builds the title and subtitle shown for a progress document in Studio. */
     prepare({courseTitle, userId, lastUpdated}) {
       return {
         title: courseTitle || 'Untitled Course Progress',

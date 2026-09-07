@@ -21,6 +21,7 @@ export type CurriculumModule = {
   lessons: CurriculumLesson[];
 };
 
+/** Renders the curriculum expansion indicator. */
 function Chevron({ expanded = false }: { expanded?: boolean }) {
   return (
     <svg className={expanded ? "is-expanded" : undefined} viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -29,6 +30,7 @@ function Chevron({ expanded = false }: { expanded?: boolean }) {
   );
 }
 
+/** Renders the completed-lesson indicator. */
 function CheckIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -38,6 +40,7 @@ function CheckIcon() {
   );
 }
 
+/** Renders expandable course modules with learner-specific lesson status. */
 export function CourseCurriculum({
   modules,
   courseId,
@@ -53,6 +56,7 @@ export function CourseCurriculum({
   const visibleModules = showAll ? modules : modules.slice(0, 3);
   const canCollapse = modules.length > 3;
 
+  /** Toggles a curriculum module and records the interaction. */
   function toggleModule(key: string) {
     setExpanded((current) => {
       const next = new Set(current);

@@ -6,6 +6,7 @@ import {UserIcon} from '@sanity/icons/User'
 import {SearchIcon} from '@sanity/icons/Search'
 import {CheckmarkCircleIcon} from '@sanity/icons/CheckmarkCircle'
 
+/** Builds the Studio desk navigation for content and learner progress. */
 export const structure: StructureResolver = (S) =>
   S.list()
     .title('Lopsis content')

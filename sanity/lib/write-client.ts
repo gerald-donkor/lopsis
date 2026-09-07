@@ -15,6 +15,7 @@ export const writeClient = createClient({
   useCdn: false,
 })
 
+/** Resolves the server-only Sanity token required for progress writes. */
 function getWriteToken(): string {
   const token =
     process.env.SANITY_API_WRITE_TOKEN ||

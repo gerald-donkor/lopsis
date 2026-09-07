@@ -21,6 +21,7 @@ const LearnerProgressContext = createContext<LearnerProgressContextValue | null>
   null,
 )
 
+/** Loads learner progress and exposes optimistic progress actions to descendants. */
 export function LearnerProgressProvider({
   children,
 }: {
@@ -39,6 +40,7 @@ export function LearnerProgressProvider({
     setRecords({})
   }
 
+  /** Reloads all progress records for the signed-in learner. */
   const refresh = useCallback(async () => {
     if (!isSignedIn) {
       setRecords({})
@@ -100,6 +102,7 @@ export function LearnerProgressProvider({
     }
   }, [isSignedIn, userId])
 
+  /** Reports whether a lesson is completed in the current course record. */
   const isLessonCompleted = useCallback(
     (courseId: string, lessonId: string): boolean => {
       const record = records[courseId]
@@ -109,6 +112,7 @@ export function LearnerProgressProvider({
     [records],
   )
 
+  /** Summarizes completion and resume state for a course. */
   const getCourseProgress = useCallback(
     (courseId: string, totalLessons?: number): CourseProgressSummary => {
       const record = records[courseId]
@@ -130,6 +134,7 @@ export function LearnerProgressProvider({
     [records],
   )
 
+  /** Optimistically toggles lesson completion and persists the mutation. */
   const toggleComplete = useCallback(
     async (
       courseId: string,
@@ -228,6 +233,7 @@ export function LearnerProgressProvider({
     [isSignedIn, records, userId],
   )
 
+  /** Saves the learner's latest playback position for a lesson. */
   const savePosition = useCallback(
     async (
       courseId: string,
@@ -304,6 +310,7 @@ export function LearnerProgressProvider({
     [isSignedIn, records],
   )
 
+  /** Records that the learner resumed a lesson from a saved position. */
   const recordResume = useCallback(
     async (
       courseId: string,
@@ -364,6 +371,7 @@ export function LearnerProgressProvider({
   )
 }
 
+/** Returns learner progress state from the nearest provider. */
 export function useLearnerProgress(): LearnerProgressContextValue {
   const context = useContext(LearnerProgressContext)
   if (!context) {
