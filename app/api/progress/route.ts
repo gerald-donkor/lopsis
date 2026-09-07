@@ -87,7 +87,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const rawBody = await request.json()
+    let rawBody: unknown
+    try {
+      rawBody = await request.json()
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid JSON payload' },
+        { status: 400 },
+      )
+    }
+
     const payload = progressPayloadSchema.parse(rawBody)
 
     const docId = getProgressDocId(userId, payload.courseId)
@@ -104,61 +113,77 @@ export async function POST(request: Request) {
     })
 
     if (payload.action === 'toggle_complete') {
-      const existing = await writeClient.fetch<{
-        completedLessons?: Array<{ _ref: string; _key?: string }>
-      }>(`*[_type == "progress" && _id == $docId][0] { completedLessons }`, {
-        docId,
-      })
+      const maxRetries = 3
+      let shouldComplete = false
 
-      const existingMembers = existing?.completedLessons || []
-      const isAlreadyCompleted = existingMembers.some(
-        (item) => item._ref === payload.lessonId,
-      )
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const existing = await writeClient.fetch<{
+          _rev?: string
+          completedLessons?: Array<{ _ref: string; _key?: string }>
+        }>(`*[_type == "progress" && _id == $docId][0] { _rev, completedLessons }`, {
+          docId,
+        })
 
-      const shouldComplete =
-        payload.completed !== undefined ? payload.completed : !isAlreadyCompleted
+        const existingMembers = existing?.completedLessons || []
+        const isAlreadyCompleted = existingMembers.some(
+          (item) => item._ref === payload.lessonId,
+        )
 
-      let updatedMembers: Array<{ _type: 'reference'; _ref: string; _key: string }>
+        shouldComplete =
+          payload.completed !== undefined ? payload.completed : !isAlreadyCompleted
 
-      if (shouldComplete) {
-        if (!isAlreadyCompleted) {
-          const safeKey = payload.lessonId.replace(/[^a-zA-Z0-9_-]/g, '_')
-          updatedMembers = [
-            ...existingMembers.map((item, idx) => ({
+        let updatedMembers: Array<{ _type: 'reference'; _ref: string; _key: string }>
+
+        if (shouldComplete) {
+          if (!isAlreadyCompleted) {
+            const safeKey = payload.lessonId.replace(/[^a-zA-Z0-9_-]/g, '_')
+            updatedMembers = [
+              ...existingMembers.map((item, idx) => ({
+                _type: 'reference' as const,
+                _ref: item._ref,
+                _key: item._key || `k_${idx}_${item._ref}`,
+              })),
+              {
+                _type: 'reference' as const,
+                _ref: payload.lessonId,
+                _key: `complete_${safeKey}`,
+              },
+            ]
+          } else {
+            updatedMembers = existingMembers.map((item, idx) => ({
               _type: 'reference' as const,
               _ref: item._ref,
               _key: item._key || `k_${idx}_${item._ref}`,
-            })),
-            {
-              _type: 'reference' as const,
-              _ref: payload.lessonId,
-              _key: `complete_${safeKey}`,
-            },
-          ]
+            }))
+          }
         } else {
-          updatedMembers = existingMembers.map((item, idx) => ({
-            _type: 'reference' as const,
-            _ref: item._ref,
-            _key: item._key || `k_${idx}_${item._ref}`,
-          }))
+          updatedMembers = existingMembers
+            .filter((item) => item._ref !== payload.lessonId)
+            .map((item, idx) => ({
+              _type: 'reference' as const,
+              _ref: item._ref,
+              _key: item._key || `k_${idx}_${item._ref}`,
+            }))
         }
-      } else {
-        updatedMembers = existingMembers
-          .filter((item) => item._ref !== payload.lessonId)
-          .map((item, idx) => ({
-            _type: 'reference' as const,
-            _ref: item._ref,
-            _key: item._key || `k_${idx}_${item._ref}`,
-          }))
-      }
 
-      await writeClient
-        .patch(docId)
-        .set({
-          completedLessons: updatedMembers,
-          lastUpdated: now,
-        })
-        .commit()
+        try {
+          let patch = writeClient.patch(docId)
+          if (existing?._rev) {
+            patch = patch.ifRevisionId(existing._rev)
+          }
+          await patch
+            .set({
+              completedLessons: updatedMembers,
+              lastUpdated: new Date().toISOString(),
+            })
+            .commit()
+          break
+        } catch (patchError) {
+          if (attempt === maxRetries - 1) {
+            throw patchError
+          }
+        }
+      }
 
       if (shouldComplete) {
         await captureProgressEvent(request, {
