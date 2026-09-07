@@ -4,6 +4,7 @@ import {PlayIcon} from '@sanity/icons/Play'
 import {TagIcon} from '@sanity/icons/Tag'
 import {UserIcon} from '@sanity/icons/User'
 import {SearchIcon} from '@sanity/icons/Search'
+import {CheckmarkCircleIcon} from '@sanity/icons/CheckmarkCircle'
 
 export const structure: StructureResolver = (S) =>
   S.list()
@@ -17,4 +18,5 @@ export const structure: StructureResolver = (S) =>
       S.documentTypeListItem('category').title('Categories').icon(TagIcon),
       S.divider(),
       S.documentTypeListItem('sanity.agentContext').title('Search context').icon(SearchIcon),
+      S.documentTypeListItem('progress').title('Learner progress').icon(CheckmarkCircleIcon),
     ])
