@@ -31,7 +31,7 @@ Make the standard Lopsis production build command succeed on restricted executio
 ## Files expected to touch
 
 - `package.json`
-- `prompts/use-webpack-for-production-build.md`
+- `prompts/17-use-webpack-for-production-build.md`
 
 ## Requirements
 
@@ -60,7 +60,7 @@ Make the standard Lopsis production build command succeed on restricted executio
 
 ## Checks to run
 
-1. `git diff --check -- package.json prompts/use-webpack-for-production-build.md`
+1. `git diff --check -- package.json prompts/17-use-webpack-for-production-build.md`
 2. `npx tsc --noEmit`
 3. `npm run lint`
 4. `npm run build`

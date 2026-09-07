@@ -36,8 +36,8 @@ Stage all current Lopsis review-fix changes, commit them on a new branch, push t
 - `studio/scripts/ingest-videos.ts`
 - `package.json`
 - `package-lock.json`
-- `prompts/fix-review-findings-video-analytics-ingestion.md`
-- `prompts/publish-review-fixes-pr.md`
+- `prompts/33-fix-review-findings-video-analytics-ingestion.md`
+- `prompts/34-publish-review-fixes-pr.md`
 
 ## Security considerations
 

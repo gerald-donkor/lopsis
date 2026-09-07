@@ -82,7 +82,7 @@ Do not copy course/module/video relationship details into this prompt; those bel
 - `studio/scripts/seed/search-context.ndjson`
 - `lib/search/prompt.ts`
 - `lib/search/prompt.test.ts` if a focused contract test is useful
-- `prompts/tune-search-context-and-system-prompt.md`
+- `prompts/36-tune-search-context-and-system-prompt.md`
 
 No search UI, result schema, grounding, analytics, player, or content-schema change is expected.
 

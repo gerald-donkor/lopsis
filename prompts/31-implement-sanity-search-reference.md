@@ -11,7 +11,7 @@ Refine `/search` to reproduce `design/lopsis-search.png` using real Sanity lesso
 - Installed Next.js guide: `node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md`.
 - `components/search-page.tsx`, `components/site-header.tsx`, `app/search/page.tsx`, `app/search/loading.tsx`, `app/layout.tsx`, and search styles in `app/globals.css`.
 - Search route, result schemas, grounding lookup, `sanity/lib/client.ts`, and both workspace package manifests.
-- `prompts/use-server-owned-groq-for-search.md`, which documents the existing Gemini term extraction and fixed GROQ architecture.
+- `prompts/26-use-server-owned-groq-for-search.md`, which documents the existing Gemini term extraction and fixed GROQ architecture.
 
 ## Findings and decisions
 

@@ -21,7 +21,7 @@ Stage, commit, and push all existing changes and assets to `origin/main` in sepa
   1. **Design Reference Assets**: Add the five renamed Lopsis reference mockups in `design/` and the asset rename implementation prompt.
   2. **Agent Guidelines & Skills**: Add `AGENTS.md`, `skills-lock.json`, `.agents/`, `.claude/`, `agent/`, and `tsconfig.json` updates.
   3. **Design System Foundations & Showcase**: Add `app/globals.css`, `app/layout.tsx`, `components/design-system-page.tsx`, and the design system prompt.
-  4. **Design System Route & Page Structure**: Add `app/design-system/page.tsx`, `app/page.tsx`, `prompts/move-design-system-route.md`, and `prompts/commit-and-push-sessions.md`.
+  4. **Design System Route & Page Structure**: Add `app/design-system/page.tsx`, `app/page.tsx`, `prompts/03-move-design-system-route.md`, and `prompts/04-commit-and-push-sessions.md`.
 - Use simple, descriptive, lowercase commit messages following standard conventions.
 - After all commits are created, push `main` to `origin`.
 
@@ -33,7 +33,7 @@ Stage, commit, and push all existing changes and assets to `origin/main` in sepa
 - `design/lopsis-home.png`
 - `design/lopsis-lesson.png`
 - `design/lopsis-search.png`
-- `prompts/rename-design-assets.md`
+- `prompts/01-rename-design-assets.md`
 - **Commit message**: `add lopsis design reference assets`
 
 ### Session 2: Agent guidelines & skill configurations
@@ -49,14 +49,14 @@ Stage, commit, and push all existing changes and assets to `origin/main` in sepa
 - `app/globals.css`
 - `app/layout.tsx`
 - `components/design-system-page.tsx`
-- `prompts/implement-lopsis-design-system.md`
+- `prompts/02-implement-lopsis-design-system.md`
 - **Commit message**: `implement lopsis design system foundations and showcase`
 
 ### Session 4: Route relocation & repository readiness
 - `app/design-system/page.tsx`
 - `app/page.tsx`
-- `prompts/move-design-system-route.md`
-- `prompts/commit-and-push-sessions.md`
+- `prompts/03-move-design-system-route.md`
+- `prompts/04-commit-and-push-sessions.md`
 - **Commit message**: `serve design system at /design-system route`
 
 ## Requirements

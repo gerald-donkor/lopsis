@@ -54,7 +54,7 @@ Resolve verified review findings across player lifecycle management and search t
 - `app/api/search/route.ts` (import `candidatesFromRows` from shared module, remove local duplicate)
 - `components/lesson-video.tsx` (import `createEmbedUrl` and `VideoEmbed` from shared module, fix Bunny ready cleanup and YouTube onReady guard)
 - `lib/search/prompt.test.ts` (add boundary and normalization assertions)
-- `prompts/fix-review-findings-player-and-search-tests.md`
+- `prompts/37-fix-review-findings-player-and-search-tests.md`
 
 ## Requirements
 

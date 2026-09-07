@@ -29,7 +29,7 @@ Seed the configured Lopsis Sanity dataset exclusively from the supplied source f
 
 ## Files expected to change
 
-- `prompts/import-provided-sanity-seed.md` only.
+- `prompts/12-import-provided-sanity-seed.md` only.
 
 The following files are read only and must remain byte-for-byte unchanged:
 

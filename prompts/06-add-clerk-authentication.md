@@ -42,7 +42,7 @@ Connect this existing Lopsis Next.js application to Clerk application `app_3ImR2
 - `components/auth-controls.tsx` (new) to isolate the Clerk client components from the otherwise presentational home page.
 - `app/globals.css` only if small styling hooks are needed to preserve the existing Lopsis header presentation.
 - `.env.example` (new) with blank `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` entries.
-- `prompts/add-clerk-authentication.md` (this implementation record).
+- `prompts/06-add-clerk-authentication.md` (this implementation record).
 
 ## Requirements
 

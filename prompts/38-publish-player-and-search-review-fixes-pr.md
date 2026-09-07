@@ -7,7 +7,7 @@ Create a new branch stacked on `feat/search-timestamps-and-context-tuning`, comm
 ## Skills and documentation read
 
 - Repository `AGENTS.md`, specifically the prompt-approval workflow, client/server boundaries, validation requirements, and concise reporting format.
-- Previous stacked pull request workflow in `prompts/publish-review-fixes-pr.md`.
+- Previous stacked pull request workflow in `prompts/34-publish-review-fixes-pr.md`.
 - GitHub CLI manual for `gh pr create` and `gh pr view`.
 
 ## Repository state inspected
@@ -20,8 +20,8 @@ Create a new branch stacked on `feat/search-timestamps-and-context-tuning`, comm
   - `lib/search/timestamp-resolution.test.ts`
   - `app/api/search/route.ts`
   - `lib/search/prompt.test.ts`
-  - `prompts/fix-review-findings-player-and-search-tests.md`
-  - `prompts/publish-player-and-search-review-fixes-pr.md`
+  - `prompts/37-fix-review-findings-player-and-search-tests.md`
+  - `prompts/38-publish-player-and-search-review-fixes-pr.md`
 
 ## Decisions and assumptions
 
@@ -30,7 +30,7 @@ Create a new branch stacked on `feat/search-timestamps-and-context-tuning`, comm
    - **Commit 1 (`fix(player)`)**: Guard YouTube `onReady` with `!disposed` and register the Bunny `ready` listener into `bunnyCleanups` for proper teardown in `components/lesson-video.tsx`.
    - **Commit 2 (`refactor(search)`)**: Extract shared candidate relevance ranking (`candidatesFromRows`) and embed URL generation (`createEmbedUrl`, `formatResultHref`) into `lib/search/timestamp-resolution.ts`, updating `app/api/search/route.ts`, `components/lesson-video.tsx`, and `lib/search/timestamp-resolution.test.ts` to consume the shared helpers.
    - **Commit 3 (`test(search)`)**: Add boundary assertions (64-character accept, 65-character reject, underscore and punctuation reject) and uppercase normalization checks to `lib/search/prompt.test.ts`.
-   - **Commit 4 (`docs`)**: Track the implementation prompt `prompts/fix-review-findings-player-and-search-tests.md` and this PR workflow prompt `prompts/publish-player-and-search-review-fixes-pr.md`.
+   - **Commit 4 (`docs`)**: Track the implementation prompt `prompts/37-fix-review-findings-player-and-search-tests.md` and this PR workflow prompt `prompts/38-publish-player-and-search-review-fixes-pr.md`.
 3. **Stacked PR strategy**: Open the new pull request with `--base feat/search-timestamps-and-context-tuning` and `--head fix/review-player-and-search-tests`. This ensures the PR delta isolates only the new review fixes against PR #10, without modifying or closing PR #10.
 4. **Pull Request title & body**:
    - Title: `fix: address player lifecycle and search test review findings`
@@ -43,8 +43,8 @@ Create a new branch stacked on `feat/search-timestamps-and-context-tuning`, comm
 - `app/api/search/route.ts`
 - `lib/search/timestamp-resolution.test.ts`
 - `lib/search/prompt.test.ts`
-- `prompts/fix-review-findings-player-and-search-tests.md`
-- `prompts/publish-player-and-search-review-fixes-pr.md`
+- `prompts/37-fix-review-findings-player-and-search-tests.md`
+- `prompts/38-publish-player-and-search-review-fixes-pr.md`
 
 ## Security considerations
 

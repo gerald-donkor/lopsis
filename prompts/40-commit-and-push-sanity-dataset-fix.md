@@ -16,7 +16,7 @@ Commit and push the Sanity dataset fallback changes and implementation documenta
   - `sanity/env.ts`
   - `studio/sanity.cli.ts`
   - `studio/sanity.config.ts`
-  - `prompts/fix-vercel-deployment-sanity-dataset-error.md`
+  - `prompts/39-fix-vercel-deployment-sanity-dataset-error.md`
 - Branch protection check: `main` has no branch protection rules.
 - Local verification completed: TypeScript compiler check (`npx tsc --noEmit`), ESLint (`npm run lint`), unit tests (`npm run test:unit`), Studio typecheck (`npm --prefix studio run typecheck`), and production build (`npm run build`).
 
@@ -25,7 +25,7 @@ Commit and push the Sanity dataset fallback changes and implementation documenta
 - Move working tree changes onto `main` (updated to `origin/main` at `7b72c1b`).
 - Stage and commit all 5 files in two logical, conventional commits:
   1. `fix(sanity): default dataset to production for deployment resilience` (`sanity/env.ts`, `studio/sanity.cli.ts`, `studio/sanity.config.ts`)
-  2. `docs: document Vercel deployment fix implementation and push prompt` (`prompts/fix-vercel-deployment-sanity-dataset-error.md`, `prompts/commit-and-push-sanity-dataset-fix.md`)
+  2. `docs: document Vercel deployment fix implementation and push prompt` (`prompts/39-fix-vercel-deployment-sanity-dataset-error.md`, `prompts/40-commit-and-push-sanity-dataset-fix.md`)
 - Push `main` directly to `origin/main`, which triggers the Vercel deployment on GitHub update.
 - Ensure `.env.local` and any secret tokens remain untracked and uncommitted.
 
@@ -34,8 +34,8 @@ Commit and push the Sanity dataset fallback changes and implementation documenta
 - `sanity/env.ts`
 - `studio/sanity.cli.ts`
 - `studio/sanity.config.ts`
-- `prompts/fix-vercel-deployment-sanity-dataset-error.md`
-- `prompts/commit-and-push-sanity-dataset-fix.md`
+- `prompts/39-fix-vercel-deployment-sanity-dataset-error.md`
+- `prompts/40-commit-and-push-sanity-dataset-fix.md`
 
 ## Requirements
 

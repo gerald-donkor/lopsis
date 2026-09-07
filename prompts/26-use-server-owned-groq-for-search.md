@@ -41,7 +41,7 @@ This keeps the LLM, Context MCP, private dataset, chapter-first fallback, and fi
 - `lib/search/prompt.ts`
 - `lib/search/schema.ts`
 - `lib/search/ground-results.ts` only for the already-approved cancellation signal
-- `prompts/fix-search-timeout-and-latency.md` remains historical and is not rewritten
+- `prompts/24-fix-search-timeout-and-latency.md` remains historical and is not rewritten
 
 ## Requirements
 

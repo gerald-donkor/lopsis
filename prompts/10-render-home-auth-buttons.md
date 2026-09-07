@@ -26,7 +26,7 @@ Render the signed-out Lopsis homepage `Sign in` and `Sign up` controls with thei
 ## Files expected to change
 
 - `app/globals.css`
-- `prompts/render-home-auth-buttons.md`
+- `prompts/10-render-home-auth-buttons.md`
 
 ## Requirements
 

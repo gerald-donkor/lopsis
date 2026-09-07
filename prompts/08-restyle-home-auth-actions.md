@@ -28,7 +28,7 @@ Make the signed-out homepage account actions match the supplied reference: a com
 ## Files expected to change
 
 - `app/globals.css`
-- `prompts/restyle-home-auth-actions.md` (this record)
+- `prompts/08-restyle-home-auth-actions.md` (this record)
 
 ## Requirements
 

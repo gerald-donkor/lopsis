@@ -49,7 +49,7 @@ Package the current Lopsis Sanity schema, generated types, queries, seed tooling
 - `studio/scripts/seed/upload-missing-assets.ts`
 - `studio/scripts/seed/videos.json`
 - Current untracked prompt files in `prompts/`
-- `prompts/open-sanity-content-pr.md`
+- `prompts/16-open-sanity-content-pr.md`
 
 ## Requirements
 

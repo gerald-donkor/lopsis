@@ -26,7 +26,7 @@ Reimplement the responsive Lopsis homepage at `/` from the 1024 × 1536 desktop 
 - `components/design-system-page.tsx` (Design system tokens, brand mark SVG, and icons)
 - `components/home-page.tsx` (current partial homepage approximation to be reworked)
 - `design/lopsis-home.png` (1024 × 1536 desktop source of truth)
-- `prompts/implement-lopsis-homepage.md` (existing prompt updated for this request)
+- `prompts/05-implement-lopsis-homepage.md` (existing prompt updated for this request)
 
 ## Decisions and assumptions
 
