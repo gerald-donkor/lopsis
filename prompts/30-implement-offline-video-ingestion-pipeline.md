@@ -51,7 +51,7 @@ Implement a resilient, provider-aware offline video ingestion pipeline in Lopsis
 
 - `studio/scripts/ingest-videos.ts`: Implement multi-provider ingestion, WebVTT parsing, robust caption fallback, rate limiting, and CLI options.
 - `package.json`: Add convenient `"ingest:videos"` script referencing the studio script.
-- `prompts/implement-offline-video-ingestion-pipeline.md`: Implementation prompt.
+- `prompts/30-implement-offline-video-ingestion-pipeline.md`: Implementation prompt.
 
 ## Requirements
 

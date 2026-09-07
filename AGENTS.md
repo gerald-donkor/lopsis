@@ -45,6 +45,23 @@ When you need a decision or input from the user, ask through your interactive qu
 
 Do not write code before the prompt is approved, unless the user tells you to skip the prompt.
 
+### Fast Workflow Shorthand Commands
+
+To accelerate the development cycle through the build plan (section 15):
+
+- **When the user enters `i` or `I`**:
+  1. Inspect the build plan in section 15 to find the next sequential unimplemented task (`[ ]`).
+  2. Inspect the current codebase, configs, schema, and dependencies relevant to that task.
+  3. Write a complete, production-grade implementation prompt in `prompts/<number>-<task-name>.md` (continuing sequentially from prompt `41-`) covering the goal, skills, inspected code, decisions, files to touch, requirements, security considerations, acceptance criteria, checks to run, and exact manual test steps.
+  4. Notify the user that the prompt is written and ready for review/approval in the next session with `y` or `Y`.
+- **When the user enters `y` or `Y` (in this or a new session)**:
+  1. Locate the latest prepared implementation prompt in `prompts/`.
+  2. Treat `y` / `Y` as explicit user approval to execute that prompt immediately.
+  3. Build strictly to that prompt, without drifting or overbuilding.
+  4. Run all necessary checks (type check, lint, build per section 13).
+  5. Update the task status in section 15 from `[ ]` to `[x]`.
+  6. Return the standard three-heading completion report (`What I did`, `Test`, `Needs your attention`).
+
 ---
 
 # 3. UI work
@@ -195,3 +212,186 @@ After you implement, run the type check and lint at minimum, add a build when ro
 # 14. When in doubt
 
 Keep it small. Use the relevant skill. Preserve the server and client boundaries and the private token rule. Match the provided UI exactly. Get specifics from setup and config instead of hardcoding them. Save a prompt and get approval before coding. Run the checks. Share exact test steps.
+
+---
+
+# 15. UI Feature Audit & Complete Build Plan
+
+This section contains the comprehensive audit of all pages, features, buttons, and entities across Lopsis, followed by the phased sequential implementation plan.
+
+---
+
+### Audit: Current State vs Unimplemented UI Functionality
+
+#### 1. Global Header (`components/site-header.tsx`)
+- **Implemented**: Brand link (`/`), "Courses" link (`/courses`), Clerk auth buttons (`SignInButton`, `SignUpButton`, `UserButton`).
+- **Unimplemented / Gaps**:
+  - **"My Learning" Link (`/my-learning`)**: Currently links to `/my-learning` which returns a 404 because the route and page component do not exist yet.
+  - **Notifications Bell Button**: `<button aria-label="Notifications"><Bell /></button>` has no click interaction or popover state. Needs an accessible presentational dropdown panel displaying notification status ("All caught up", "No new announcements", unread badge indicator, click-outside and `Escape` dismiss).
+  - **Global `⌘ K` / `Ctrl+K` Shortcut**: Does not work globally from the header across all pages.
+
+#### 2. Homepage (`app/page.tsx`, `components/home-page.tsx`)
+- **Implemented**: Hero copy, "Explore Courses" button, search input form submitting to `/search`, weekly update announcement, course cards grid, bottom glow effect.
+- **Unimplemented / Gaps**:
+  - **Keyboard Shortcut**: `⌘ K` indicator is rendered in the search box, but pressing `Cmd+K` or `Ctrl+K` on the home page does not focus the search input.
+  - **Learner Progress & Resume on Course Cards**: Per Section 7, progress must surface as completion marks and a resume affordance on catalog cards. Signed-in learners with progress should see a progress bar / completion percentage and a direct "Resume" affordance on cards for courses they have started.
+
+#### 3. Course Catalog Page (`app/courses/page.tsx`, `components/all-courses-page.tsx`)
+- **Implemented**: Catalog header, course count badge, responsive course card grid, empty state.
+- **Unimplemented / Gaps**:
+  - **Instructor Links**: The byline (`By {course.instructor.name}`) is static text. Per Section 8 ("give each instructor their own page"), it must link to `/instructors/[slug]`.
+  - **Learner Progress & Resume Affordance**: Cards currently show static metadata only. For signed-in learners who have started a course, render progress indicators (percentage / completed modules count) and a direct resume action.
+
+#### 4. Course Detail Page (`app/courses/[slug]/page.tsx`, `components/course-page.tsx`, `components/course-curriculum.tsx`)
+- **Implemented**: Breadcrumb, course cover image, popular badge, title, summary, meta stats, learning outcomes grid, expandable curriculum modules, show all/fewer modules toggle.
+- **Unimplemented / Gaps**:
+  - **Instructor Attribution**: Section 8 requires surfacing the instructor on the course. Currently, instructor information is not displayed on the course detail page. Needs an instructor attribution section/card with photo, name linking to `/instructors/[slug]`, and expertise.
+  - **Hero "Continue Learning" CTA**: Currently hardcoded to link to the first lesson regardless of user progress. Should dynamically route to the learner's last resume lesson (or first incomplete lesson) and dynamically adapt label ("Start Course" vs "Continue Learning" vs "Review Course").
+  - **Bookmark Course Button**: Currently `<button className="course-bookmark" aria-label="Bookmark course (not saved)">` with static text and no interactive toggle. Needs full UI state (bookmarked vs not bookmarked), active icon styling, accessible aria feedback, and state persistence.
+  - **Curriculum Lesson Status Indicators**:
+    - Completed checkmarks (`Icon name="check"`) for completed lessons.
+    - "In Progress" dot (`<i className="status-progress"/>`) for the active/resume lesson.
+    - "Free preview" badge tag on lessons flagged with `freePreview: true` (Section 7: "free preview is a label, not access control").
+  - **Bottom Fixed Progress Strip**: Currently hardcoded to `0% complete` with an empty track and a static link to the first lesson. Must calculate and render real learner progress (percentage, filled track width) and link the CTA to the resume lesson.
+
+#### 5. Lesson Page (`app/lessons/[slug]/page.tsx`, `components/lesson-page.tsx`, `components/lesson-video.tsx`)
+- **Implemented**: Left rail layout, breadcrumb, lesson title, summary, meta stats, overview Portable Text, key points list, pro tip callout, notes tab, resources cards, previous/next lesson pagination, video embed (YouTube, Vimeo, Bunny) with seek on load and PostHog analytics.
+- **Unimplemented / Gaps**:
+  - **Curriculum Rail Course Progress**: Hardcoded to `0% complete`. Must display the learner's actual progress percentage and progress bar fill.
+  - **Curriculum Rail Lesson Items**: Lessons only display an empty bullet or "Now playing". Must render completion checkmarks for finished lessons and in-progress indicators.
+  - **"Mark as Complete" / "Completed" Button**: A critical learner action currently missing from the page. Learners need an explicit interactive toggle to mark a lesson completed or uncompleted, persisting the record to the backend and triggering `lessonCompleted` analytics.
+  - **Bookmark Lesson Button**: Currently `<button aria-label="Bookmark lesson"><Bookmark /></button>` with no interactive toggle or state. Needs interactive active state, tooltip, and state persistence.
+  - **Instructor Attribution**: Surface the instructor avatar and name (linking to `/instructors/[slug]`) in the lesson header/meta.
+  - **Video Resume Tracking**: While `LessonVideo` seeks to `startSeconds` if passed, it does not persist the learner's watch position (`lastPositionSeconds`) to the progress API on pause/unload or at milestones.
+  - **Auto-Completion on Video End**: When `videoCompleted` fires in `LessonVideo`, automatically update learner progress to mark the lesson as completed.
+
+#### 6. Search Page (`app/search/page.tsx`, `components/search-page.tsx`)
+- **Implemented**: Grounded search via Context MCP + Gemini, relevance/alphabetical sorting, video result cards with timestamp links, lesson result cards, loading skeleton, error retry state, empty states.
+- **Unimplemented / Gaps**:
+  - **Learner Completion Indicators**: Result cards (both video and lesson cards) should indicate if the matched lesson has already been completed by the learner.
+
+#### 7. Missing Entity Page: Instructor Detail Page (`/instructors/[slug]`)
+- **Current State**: Entirely missing. Query `INSTRUCTOR_BY_SLUG_QUERY` and helper `getInstructorBySlug()` exist in `sanity/`, but no route or UI exists.
+- **Requirements**:
+  - Route `app/instructors/[slug]/page.tsx` with dynamic metadata.
+  - Component `components/instructor-page.tsx` matching Lopsis design system.
+  - Profile header: Instructor photo, name (`Playfair Display`), expertise tag badges, bio rich text, total courses count.
+  - "Courses by [Instructor Name]" grid reusing `CourseCard`.
+  - Breadcrumbs and navigation back to catalog.
+
+#### 8. Missing Surface: My Learning Page (`/my-learning`)
+- **Current State**: Entirely missing. Nav link in header points to `/my-learning` which 404s.
+- **Requirements**:
+  - Route `app/my-learning/page.tsx` with metadata.
+  - Component `components/my-learning-page.tsx`.
+  - Signed-out state: Friendly prompt to sign in with Clerk to view saved progress and courses.
+  - Signed-in state with tabs:
+    - **In Progress**: Courses the learner has started, showing progress bar (`X% complete`), lessons completed count (`Y of Z lessons`), and a prominent "Resume Learning" button routing straight to the last watched lesson & timestamp.
+    - **Completed**: Courses with 100% completion, showing completion badge and "Review Course" CTA.
+    - **Bookmarked**: Saved courses and lessons for quick reference.
+  - Empty state when no courses have been started yet, with "Explore Catalog" CTA.
+
+#### 9. Missing Data Layer: Learner Progress Backend & State Persistence
+- **Current State**: No `progress` schema in Sanity, no server route to read/write progress, no write token client.
+- **Requirements (per Sections 5, 7, 8, 12)**:
+  - Sanity schema `progress` in `studio/schema-types/documents/progress.ts` (`userId`, `course` ref, `completedLessons` refs, `lastLesson` ref, `lastPositionSeconds`, `lastUpdated`).
+  - Server-only Sanity write client using `SANITY_API_WRITE_TOKEN`.
+  - Server route `app/api/progress/route.ts`:
+    - Authenticated with Clerk `auth()`.
+    - `GET`: Returns user's progress records (completed lesson IDs, resume positions per course).
+    - `POST`: Saves progress updates (toggle lesson completion, update last resume position and lesson).
+    - Captures PostHog server events (`lesson_completed`, `resume_used`) via `captureProgressEvent`.
+  - Client state hook / provider (`lib/progress/use-learner-progress.ts`) providing optimistic updates and shared state across all pages.
+
+---
+
+### Phased Build Plan & Execution Tasks
+
+Below are the 7 implementation tasks in precise dependency order. Use `i` to prompt the next pending task and `y` to execute it.
+
+- [ ] Task 1: Learner Progress Schema, Server API Route & Client State Hook (`prompts/41-learner-progress-schema-and-api.md`)
+- [ ] Task 2: Course Detail Page Progress, Resume & Curriculum Interactivity (`prompts/42-course-detail-progress-and-curriculum-interactivity.md`)
+- [ ] Task 3: Catalog & Home Page Progress Affordances & Instructor Links (`prompts/43-catalog-home-progress-and-instructor-links.md`)
+- [ ] Task 4: Lesson Page Interactivity, Completion Toggle & Video Resume Persistence (`prompts/44-lesson-page-interactivity-and-video-resume.md`)
+- [ ] Task 5: Instructor Detail Pages (/instructors/[slug]) & Profile UI (`prompts/45-instructor-detail-pages.md`)
+- [ ] Task 6: My Learning Page (/my-learning) with Enrolled, Completed & Bookmarked Views (`prompts/46-my-learning-page.md`)
+- [ ] Task 7: Notifications Dropdown, Global Search Shortcut (⌘K) & Search Page Completion Marks (`prompts/47-notifications-popover-and-global-shortcuts.md`)
+
+---
+
+#### Task 1: Learner Progress Schema, Server API Route & Client State Hook
+- **Scope**:
+  - Define Sanity `progress` document schema in Studio (`studio/schema-types/documents/progress.ts`) and export in `studio/schema-types/index.ts`.
+  - Create server-only Sanity write client in `sanity/lib/write-client.ts` using `SANITY_API_WRITE_TOKEN` / `SANITY_API_TOKEN`.
+  - Add `SANITY_API_WRITE_TOKEN` to `.env.example`.
+  - Create protected server route `app/api/progress/route.ts` with Clerk `auth()` verification:
+    - `GET`: Return all progress records for authenticated user.
+    - `POST`: Handle `toggle_complete` (add/remove lesson from `completedLessons`) and `save_position` (`lastPositionSeconds`, `lastLesson`).
+    - Capture `captureProgressEvent` for PostHog telemetry.
+  - Create client hook `useLearnerProgress` (`lib/progress/use-learner-progress.ts`) with optimistic updates and SWR/fetch caching.
+
+#### Task 2: Course Detail Page Progress, Resume & Curriculum Interactivity
+- **Scope**:
+  - Wire `CoursePage` to `useLearnerProgress`.
+  - Render actual completion percentage and filled progress track in the fixed bottom strip.
+  - Route hero "Continue Learning" and bottom strip CTA to the learner's current resume lesson or next uncompleted lesson.
+  - Update `CourseCurriculum` lesson rows:
+    - Render completed checkmarks for finished lessons.
+    - Render in-progress dot for the current resume lesson.
+    - Render "Free preview" badge tag on eligible lessons.
+  - Implement interactive Course Bookmark button with active toggle styling, tooltip/toast feedback, and local/user state persistence.
+  - Add instructor attribution in Course Hero with photo, name linking to `/instructors/[slug]`, and expertise.
+
+#### Task 3: Catalog & Home Page Progress Affordances & Instructor Links
+- **Scope**:
+  - Update `CourseCard` in `components/all-courses-page.tsx` and `components/home-page.tsx` to read learner progress.
+  - Display progress bar and completion percentage (`X% complete`) for enrolled/in-progress courses.
+  - Add quick "Resume" affordance routing to the learner's last lesson.
+  - Link instructor bylines (`By {course.instructor.name}`) to `/instructors/[slug]`.
+  - Add `⌘ K` / `Ctrl+K` keyboard event listener on the Homepage search input.
+
+#### Task 4: Lesson Page Interactivity, Completion Toggle & Video Resume Persistence
+- **Scope**:
+  - Wire `LessonPage` to `useLearnerProgress`.
+  - Connect rail course progress bar to real learner progress percentage.
+  - Render completed checkmarks and in-progress status in rail lesson items.
+  - Add "Mark as Complete" / "Completed" toggle button in lesson header with loading and success states.
+  - Implement interactive Lesson Bookmark button with active toggle and state persistence.
+  - Surface instructor attribution in lesson header with link to `/instructors/[slug]`.
+  - Update `LessonVideo` to:
+    - Seek to saved resume position if no query `start` parameter is present.
+    - Auto-save resume timestamp (`lastPositionSeconds`) on pause or at interval via progress API.
+    - Automatically mark lesson complete on `videoCompleted` event.
+
+#### Task 5: Instructor Detail Pages (`/instructors/[slug]`) & Profile UI
+- **Scope**:
+  - Create `app/instructors/[slug]/page.tsx` with dynamic metadata using `getInstructorBySlug(slug)`.
+  - Create `components/instructor-page.tsx`:
+    - Breadcrumbs: All Courses > Instructors > [Instructor Name].
+    - Instructor Profile Header: High-res photo, name (`Playfair Display`), expertise pills, bio prose, courses count and student stats.
+    - Courses Grid: Reusing `CourseCard` component to list all courses taught by the instructor.
+    - Responsive layout down to mobile, matching Lopsis design system.
+    - 404 handler when instructor slug is invalid.
+
+#### Task 6: My Learning Page (`/my-learning`)
+- **Scope**:
+  - Create `app/my-learning/page.tsx` with metadata.
+  - Create `components/my-learning-page.tsx`:
+    - Header and responsive container matching platform layout.
+    - Signed-out view: Clean banner prompting user to sign in or create an account with Clerk to see learning history.
+    - Signed-in view with tabs:
+      - **In Progress**: Cards for enrolled courses showing progress bar, lessons completed count, and direct "Resume Lesson" CTA.
+      - **Completed**: Cards for courses with 100% progress, showing completed badge and "Review Course" CTA.
+      - **Bookmarked**: List of saved courses and lessons.
+    - Empty state when no courses have been started, pointing to `/courses`.
+
+#### Task 7: Notifications Dropdown, Global Search Shortcut (`⌘ K`) & Search Page Completion Marks
+- **Scope**:
+  - Build interactive Notifications Popover in `components/site-header.tsx`:
+    - Toggles on bell button click, with unread badge (0), accessible dialog ARIA attributes (`aria-expanded`, `aria-haspopup`).
+    - Presentational content: "You're all caught up!", recent release announcements, mark all as read action.
+    - Click-outside and `Escape` key handlers to close.
+  - Implement global keyboard shortcut (`⌘ K` / `Ctrl+K`) across the site:
+    - If on `/` or `/search`, focuses the active search field.
+    - If on any other page, navigates to `/search` and focuses the input.
+  - Update `SearchPage` (`components/search-page.tsx`) to show completion checkmark badges on lesson and video result cards for lessons already completed by the user.

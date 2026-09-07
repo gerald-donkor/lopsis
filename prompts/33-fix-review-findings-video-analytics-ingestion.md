@@ -43,7 +43,7 @@ Apply the six still-valid review fixes with minimal changes: remount React-owned
 - `studio/scripts/ingest-videos.ts`
 - `package.json`
 - `package-lock.json`
-- `prompts/fix-review-findings-video-analytics-ingestion.md`
+- `prompts/33-fix-review-findings-video-analytics-ingestion.md`
 
 ## Requirements
 

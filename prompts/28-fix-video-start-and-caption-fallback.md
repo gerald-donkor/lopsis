@@ -35,7 +35,7 @@ Fix two verified edge cases in Lopsis video playback and YouTube transcript inge
 
 - `app/lessons/[slug]/page.tsx`
 - `studio/scripts/ingest-videos.ts`
-- `prompts/fix-video-start-and-caption-fallback.md`
+- `prompts/28-fix-video-start-and-caption-fallback.md`
 
 ## Requirements
 

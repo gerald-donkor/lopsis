@@ -7,7 +7,7 @@ Package the approved Lopsis video start-clamping and caption-fallback fixes into
 ## Skills and documentation read
 
 - Repository `AGENTS.md` workflow, architecture, validation, and handoff requirements.
-- The approved implementation prompt at `prompts/fix-video-start-and-caption-fallback.md`.
+- The approved implementation prompt at `prompts/28-fix-video-start-and-caption-fallback.md`.
 - CodeRabbit CLI documentation previously reviewed for the optional local-review workflow.
 
 ## Existing code and repository state inspected
@@ -17,7 +17,7 @@ Package the approved Lopsis video start-clamping and caption-fallback fixes into
 - The current worktree contains only the two approved source edits plus their implementation prompt before this release prompt is added:
   - `app/lessons/[slug]/page.tsx`
   - `studio/scripts/ingest-videos.ts`
-  - `prompts/fix-video-start-and-caption-fallback.md`
+  - `prompts/28-fix-video-start-and-caption-fallback.md`
 - Root TypeScript, ESLint, Studio TypeScript, `git diff --check`, and the network-enabled production build have passed for the implementation.
 - The optional CodeRabbit review was skipped because neither `coderabbit` nor `cr` is installed as a directly usable CLI on `PATH`.
 - Dev startup reached Next.js readiness but exited because `.next/dev/lock` is stale and references dead PID `938955`; do not alter or commit that generated state.
@@ -36,8 +36,8 @@ Package the approved Lopsis video start-clamping and caption-fallback fixes into
 
 - `app/lessons/[slug]/page.tsx`
 - `studio/scripts/ingest-videos.ts`
-- `prompts/fix-video-start-and-caption-fallback.md`
-- `prompts/push-video-start-caption-fix-pr.md`
+- `prompts/28-fix-video-start-and-caption-fallback.md`
+- `prompts/29-push-video-start-caption-fix-pr.md`
 
 ## Requirements
 

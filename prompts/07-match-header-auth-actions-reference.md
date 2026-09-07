@@ -26,7 +26,7 @@ Restyle the signed-out Lopsis header controls to match the red-circled area of t
 ## Files expected to change
 
 - `app/globals.css`
-- `prompts/match-header-auth-actions-reference.md`
+- `prompts/07-match-header-auth-actions-reference.md`
 
 ## Requirements
 

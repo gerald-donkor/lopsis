@@ -73,7 +73,7 @@ Upgrade the Lopsis intelligent search and playback experience with robust two-st
 - `lib/search/schema.ts`
 - `components/lesson-video.tsx`
 - `lib/search/timestamp-resolution.test.ts` (new unit test file)
-- `prompts/upgrade-search-two-stage-timestamp-playback.md`
+- `prompts/35-upgrade-search-two-stage-timestamp-playback.md`
 
 ## Requirements
 
