@@ -2,6 +2,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { PostHogIdentity } from "@/components/posthog-identity";
+import { LearnerProgressProvider } from "@/lib/progress/progress-provider";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
@@ -19,7 +20,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <ClerkProvider>
           <PostHogIdentity />
-          {children}
+          <LearnerProgressProvider>{children}</LearnerProgressProvider>
         </ClerkProvider>
       </body>
     </html>
