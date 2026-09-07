@@ -5,6 +5,7 @@ import type { BookmarkItem } from './types'
 import {
   isBookmarkedInList,
   parseBookmarks,
+  readSafeBookmarks,
   removeBookmarkFromList,
   toggleBookmarkInList,
 } from './use-bookmarks'
@@ -103,3 +104,61 @@ test('bookmarks: removeBookmarkFromList removes item by id', () => {
   const after = removeBookmarkFromList(initial, 'course-abc')
   assert.equal(after.length, 0)
 })
+
+test('bookmarks: readSafeBookmarks returns fallback when window is undefined', () => {
+  const fallback: BookmarkItem[] = [
+    {
+      id: 'course-1',
+      type: 'course',
+      title: 'Course 1',
+      slug: 'course-1',
+      bookmarkedAt: '2026-09-07T12:00:00.000Z',
+    },
+  ]
+  const result = readSafeBookmarks(fallback)
+  assert.deepEqual(result, fallback)
+})
+
+test('bookmarks: readSafeBookmarks returns empty array when storage is empty', () => {
+  const originalWindow = globalThis.window
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = {
+      localStorage: {
+        getItem: () => null,
+      },
+    }
+    assert.deepEqual(readSafeBookmarks([]), [])
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = originalWindow
+  }
+})
+
+test('bookmarks: readSafeBookmarks falls back when localStorage throws SecurityError', () => {
+  const fallback: BookmarkItem[] = [
+    {
+      id: 'course-fb',
+      type: 'course',
+      title: 'Fallback Course',
+      slug: 'fallback-course',
+      bookmarkedAt: '2026-09-07T12:00:00.000Z',
+    },
+  ]
+  const originalWindow = globalThis.window
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = {
+      localStorage: {
+        getItem: () => {
+          throw new Error('SecurityError: Access is denied')
+        },
+      },
+    }
+    assert.deepEqual(readSafeBookmarks(fallback), fallback)
+  } finally {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).window = originalWindow
+  }
+})
+

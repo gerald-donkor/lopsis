@@ -59,13 +59,26 @@ export function removeBookmarkFromList(
   return list.filter((b) => b.id !== id)
 }
 
+export function readSafeBookmarks(fallback: BookmarkItem[] = EMPTY_BOOKMARKS): BookmarkItem[] {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+  try {
+    const raw = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY)
+    if (!raw) return []
+    return parseBookmarks(raw)
+  } catch {
+    return fallback
+  }
+}
+
 function persistBookmarks(nextBookmarks: BookmarkItem[]) {
   if (typeof window === 'undefined') return
   try {
-    window.localStorage.setItem(
-      BOOKMARKS_STORAGE_KEY,
-      JSON.stringify(nextBookmarks),
-    )
+    const raw = JSON.stringify(nextBookmarks)
+    window.localStorage.setItem(BOOKMARKS_STORAGE_KEY, raw)
+    cachedRaw = raw
+    cachedBookmarks = nextBookmarks
     window.dispatchEvent(
       new CustomEvent(BOOKMARKS_EVENT, { detail: nextBookmarks }),
     )
@@ -77,6 +90,58 @@ function persistBookmarks(nextBookmarks: BookmarkItem[]) {
 let cachedRaw: string | null = null
 let cachedBookmarks: BookmarkItem[] = []
 const EMPTY_BOOKMARKS: BookmarkItem[] = []
+
+export const BOOKMARKS_LOCK_KEY = 'lopsis:bookmarks:lock'
+const LOCK_TIMEOUT_MS = 60
+
+export function runSynchronizedMutation<T>(
+  fallback: BookmarkItem[],
+  mutate: (current: BookmarkItem[]) => { next: BookmarkItem[]; result: T },
+): T {
+  if (typeof window === 'undefined') {
+    const { result } = mutate(fallback)
+    return result
+  }
+
+  const lockId = `${Date.now()}_${Math.random()}`
+  let lockAcquired = false
+
+  try {
+    const deadline = Date.now() + LOCK_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      const lockVal = window.localStorage.getItem(BOOKMARKS_LOCK_KEY)
+      if (!lockVal || Number(lockVal.split(':')[1]) < Date.now()) {
+        window.localStorage.setItem(
+          BOOKMARKS_LOCK_KEY,
+          `${lockId}:${Date.now() + 100}`,
+        )
+        const check = window.localStorage.getItem(BOOKMARKS_LOCK_KEY)
+        if (check?.startsWith(lockId)) {
+          lockAcquired = true
+          break
+        }
+      }
+    }
+  } catch {
+    // If storage access is restricted, continue mutation with fallback
+  }
+
+  try {
+    const current = readSafeBookmarks(fallback)
+    const { next, result } = mutate(current)
+    persistBookmarks(next)
+    return result
+  } finally {
+    if (lockAcquired) {
+      try {
+        const check = window.localStorage.getItem(BOOKMARKS_LOCK_KEY)
+        if (check?.startsWith(lockId)) {
+          window.localStorage.removeItem(BOOKMARKS_LOCK_KEY)
+        }
+      } catch {}
+    }
+  }
+}
 
 function getSnapshot(): BookmarkItem[] {
   if (typeof window === 'undefined') {
@@ -91,7 +156,7 @@ function getSnapshot(): BookmarkItem[] {
     cachedBookmarks = parseBookmarks(raw)
     return cachedBookmarks
   } catch {
-    return EMPTY_BOOKMARKS
+    return cachedBookmarks.length > 0 ? cachedBookmarks : EMPTY_BOOKMARKS
   }
 }
 
@@ -139,36 +204,33 @@ export function useBookmarks() {
 
   const toggleBookmark = useCallback(
     (item: { id: string; type: BookmarkType; title: string; slug: string }): boolean => {
-      const current = typeof window !== 'undefined'
-        ? parseBookmarks(window.localStorage.getItem(BOOKMARKS_STORAGE_KEY))
-        : bookmarks
-      const { next, isAdded } = toggleBookmarkInList(current, item)
-      persistBookmarks(next)
-      return isAdded
+      return runSynchronizedMutation(bookmarks, (current) => {
+        const { next, isAdded } = toggleBookmarkInList(current, item)
+        return { next, result: isAdded }
+      })
     },
     [bookmarks],
   )
 
   const addBookmark = useCallback(
     (item: { id: string; type: BookmarkType; title: string; slug: string }): void => {
-      const current = typeof window !== 'undefined'
-        ? parseBookmarks(window.localStorage.getItem(BOOKMARKS_STORAGE_KEY))
-        : bookmarks
-      if (!isBookmarkedInList(current, item.id)) {
+      runSynchronizedMutation(bookmarks, (current) => {
+        if (isBookmarkedInList(current, item.id)) {
+          return { next: current, result: undefined }
+        }
         const { next } = toggleBookmarkInList(current, item)
-        persistBookmarks(next)
-      }
+        return { next, result: undefined }
+      })
     },
     [bookmarks],
   )
 
   const removeBookmark = useCallback(
     (id: string): void => {
-      const current = typeof window !== 'undefined'
-        ? parseBookmarks(window.localStorage.getItem(BOOKMARKS_STORAGE_KEY))
-        : bookmarks
-      const next = removeBookmarkFromList(current, id)
-      persistBookmarks(next)
+      runSynchronizedMutation(bookmarks, (current) => {
+        const next = removeBookmarkFromList(current, id)
+        return { next, result: undefined }
+      })
     },
     [bookmarks],
   )
