@@ -53,3 +53,76 @@ test('progress calculation: calculates percentage and completion correctly', () 
   assert.equal(completedSummary.percentage, 100)
   assert.equal(completedSummary.isCompleted, true)
 })
+
+test('progress reconciliation: merging savePosition response preserves completedLessonIds', () => {
+  const currentRecord: ProgressRecord = {
+    _id: 'record-1',
+    userId: 'user-1',
+    courseId: 'course-1',
+    completedLessonIds: ['lesson-1', 'lesson-2'],
+    lastLessonId: 'lesson-1',
+    lastPositionSeconds: 10,
+    lastUpdated: '2026-09-07T12:00:00.000Z',
+  }
+
+  // Server response for savePosition may have older completedLessonIds
+  const serverResponseRecord: ProgressRecord = {
+    _id: 'record-1',
+    userId: 'user-1',
+    courseId: 'course-1',
+    completedLessonIds: ['lesson-1'], // stale completions on server
+    lastLessonId: 'lesson-2',
+    lastPositionSeconds: 45,
+    lastUpdated: '2026-09-07T12:01:00.000Z',
+  }
+
+  // Field-level position merge
+  const merged: ProgressRecord = {
+    ...currentRecord,
+    lastLessonId: serverResponseRecord.lastLessonId ?? currentRecord.lastLessonId,
+    lastPositionSeconds:
+      serverResponseRecord.lastPositionSeconds ?? currentRecord.lastPositionSeconds,
+    lastUpdated: serverResponseRecord.lastUpdated ?? currentRecord.lastUpdated,
+  }
+
+  assert.deepEqual(merged.completedLessonIds, ['lesson-1', 'lesson-2'])
+  assert.equal(merged.lastLessonId, 'lesson-2')
+  assert.equal(merged.lastPositionSeconds, 45)
+  assert.equal(merged.lastUpdated, '2026-09-07T12:01:00.000Z')
+})
+
+test('progress reconciliation: savePosition error rollback reverts only position fields', () => {
+  const currentRecordWithOptimisticCompletion: ProgressRecord = {
+    _id: 'record-1',
+    userId: 'user-1',
+    courseId: 'course-1',
+    completedLessonIds: ['lesson-1', 'lesson-2'], // newly added by toggleComplete
+    lastLessonId: 'lesson-2',
+    lastPositionSeconds: 90, // optimistic position that failed
+    lastUpdated: '2026-09-07T12:02:00.000Z',
+  }
+
+  const previousRecordBeforeSavePosition: ProgressRecord = {
+    _id: 'record-1',
+    userId: 'user-1',
+    courseId: 'course-1',
+    completedLessonIds: ['lesson-1'],
+    lastLessonId: 'lesson-1',
+    lastPositionSeconds: 30,
+    lastUpdated: '2026-09-07T12:00:00.000Z',
+  }
+
+  // Position-only rollback
+  const reconciled: ProgressRecord = {
+    ...currentRecordWithOptimisticCompletion,
+    lastLessonId: previousRecordBeforeSavePosition.lastLessonId,
+    lastPositionSeconds: previousRecordBeforeSavePosition.lastPositionSeconds,
+    lastUpdated:
+      previousRecordBeforeSavePosition.lastUpdated ??
+      currentRecordWithOptimisticCompletion.lastUpdated,
+  }
+
+  assert.deepEqual(reconciled.completedLessonIds, ['lesson-1', 'lesson-2'])
+  assert.equal(reconciled.lastLessonId, 'lesson-1')
+  assert.equal(reconciled.lastPositionSeconds, 30)
+})

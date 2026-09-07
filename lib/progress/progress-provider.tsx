@@ -31,6 +31,7 @@ export function LearnerProgressProvider({
   const [records, setRecords] = useState<Record<string, ProgressRecord>>({})
   const [isLoading, setIsLoading] = useState(false)
   const mutationSeqRef = useRef<Record<string, number>>({})
+  const authGenerationRef = useRef(0)
 
   const currentAuthKey = isSignedIn && userId ? userId : null
   const [prevAuthKey, setPrevAuthKey] = useState<string | null>(currentAuthKey)
@@ -40,6 +41,11 @@ export function LearnerProgressProvider({
     setRecords({})
   }
 
+  useEffect(() => {
+    mutationSeqRef.current = {}
+    authGenerationRef.current += 1
+  }, [currentAuthKey])
+
   /** Reloads all progress records for the signed-in learner. */
   const refresh = useCallback(async () => {
     if (!isSignedIn) {
@@ -47,11 +53,13 @@ export function LearnerProgressProvider({
       return
     }
 
+    const capturedAuthGen = authGenerationRef.current
     setIsLoading(true)
     try {
       const response = await fetch('/api/progress')
-      if (response.ok) {
+      if (response.ok && authGenerationRef.current === capturedAuthGen) {
         const data = (await response.json()) as { records: ProgressRecord[] }
+        if (authGenerationRef.current !== capturedAuthGen) return
         const map: Record<string, ProgressRecord> = {}
         for (const record of data.records || []) {
           if (record.courseId) {
@@ -61,9 +69,13 @@ export function LearnerProgressProvider({
         setRecords(map)
       }
     } catch (error) {
-      console.error('Failed to refresh learner progress:', error)
+      if (authGenerationRef.current === capturedAuthGen) {
+        console.error('Failed to refresh learner progress:', error)
+      }
     } finally {
-      setIsLoading(false)
+      if (authGenerationRef.current === capturedAuthGen) {
+        setIsLoading(false)
+      }
     }
   }, [isSignedIn])
 
@@ -72,12 +84,19 @@ export function LearnerProgressProvider({
       return
     }
 
+    const capturedAuthGen = authGenerationRef.current
     const controller = new AbortController()
 
     fetch('/api/progress', { signal: controller.signal })
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { records?: ProgressRecord[] } | null) => {
-        if (controller.signal.aborted || !data?.records) return
+        if (
+          controller.signal.aborted ||
+          authGenerationRef.current !== capturedAuthGen ||
+          !data?.records
+        ) {
+          return
+        }
         const map: Record<string, ProgressRecord> = {}
         for (const record of data.records) {
           if (record.courseId) {
@@ -87,12 +106,18 @@ export function LearnerProgressProvider({
         setRecords(map)
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) {
+        if (
+          !controller.signal.aborted &&
+          authGenerationRef.current === capturedAuthGen
+        ) {
           console.error('Failed to load learner progress:', error)
         }
       })
       .finally(() => {
-        if (!controller.signal.aborted) {
+        if (
+          !controller.signal.aborted &&
+          authGenerationRef.current === capturedAuthGen
+        ) {
           setIsLoading(false)
         }
       })
@@ -146,6 +171,7 @@ export function LearnerProgressProvider({
         return false
       }
 
+      const capturedAuthGen = authGenerationRef.current
       const seq = (mutationSeqRef.current[courseId] || 0) + 1
       mutationSeqRef.current[courseId] = seq
 
@@ -204,7 +230,10 @@ export function LearnerProgressProvider({
         }
 
         if (data.record && data.record.courseId) {
-          if (mutationSeqRef.current[courseId] === seq) {
+          if (
+            authGenerationRef.current === capturedAuthGen &&
+            mutationSeqRef.current[courseId] === seq
+          ) {
             setRecords((prev) => ({
               ...prev,
               [data.record.courseId]: data.record,
@@ -215,8 +244,11 @@ export function LearnerProgressProvider({
         return targetCompleted
       } catch (error) {
         console.error('Error toggling lesson completion:', error)
-        // Scoped rollback: only roll back if this is still the latest mutation for courseId
-        if (mutationSeqRef.current[courseId] === seq) {
+        // Scoped rollback: only roll back if auth generation and course sequence still match
+        if (
+          authGenerationRef.current === capturedAuthGen &&
+          mutationSeqRef.current[courseId] === seq
+        ) {
           setRecords((prev) => {
             const updated = { ...prev }
             if (existingRecord) {
@@ -242,6 +274,7 @@ export function LearnerProgressProvider({
     ): Promise<void> => {
       if (!isSignedIn) return
 
+      const capturedAuthGen = authGenerationRef.current
       const seq = (mutationSeqRef.current[courseId] || 0) + 1
       mutationSeqRef.current[courseId] = seq
       const previousRecord = records[courseId]
@@ -284,25 +317,50 @@ export function LearnerProgressProvider({
           record: ProgressRecord
         }
         if (data.record && data.record.courseId) {
-          if (mutationSeqRef.current[courseId] === seq) {
-            setRecords((prev) => ({
-              ...prev,
-              [data.record.courseId]: data.record,
-            }))
+          if (
+            authGenerationRef.current === capturedAuthGen &&
+            mutationSeqRef.current[courseId] === seq
+          ) {
+            setRecords((prev) => {
+              const current = prev[courseId]
+              if (!current) {
+                return {
+                  ...prev,
+                  [data.record.courseId]: data.record,
+                }
+              }
+              return {
+                ...prev,
+                [courseId]: {
+                  ...current,
+                  lastLessonId: data.record.lastLessonId ?? current.lastLessonId,
+                  lastPositionSeconds:
+                    data.record.lastPositionSeconds ?? current.lastPositionSeconds,
+                  lastUpdated: data.record.lastUpdated ?? current.lastUpdated,
+                },
+              }
+            })
           }
         }
       } catch (error) {
         console.error('Failed to persist video position:', error)
-        // Reconcile optimistic position with canonical record on failure if still latest mutation
-        if (mutationSeqRef.current[courseId] === seq) {
+        // Reconcile optimistic position with canonical record on failure if still latest mutation and same auth generation
+        if (
+          authGenerationRef.current === capturedAuthGen &&
+          mutationSeqRef.current[courseId] === seq
+        ) {
           setRecords((prev) => {
-            const updated = { ...prev }
-            if (previousRecord) {
-              updated[courseId] = previousRecord
-            } else {
-              delete updated[courseId]
+            const current = prev[courseId]
+            if (!current) return prev
+            return {
+              ...prev,
+              [courseId]: {
+                ...current,
+                lastLessonId: previousRecord?.lastLessonId,
+                lastPositionSeconds: previousRecord?.lastPositionSeconds,
+                lastUpdated: previousRecord?.lastUpdated ?? current.lastUpdated,
+              },
             }
-            return updated
           })
         }
       }
