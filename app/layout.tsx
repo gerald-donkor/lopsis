@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     "Lopsis is an intelligent learning platform with AI-powered video search to find exact lesson moments across all your courses.",
 };
 
+/** Provides the application shell and shared authentication, analytics, and progress state. */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>

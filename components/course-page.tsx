@@ -14,6 +14,7 @@ import { useBookmarks } from "@/lib/bookmarks/use-bookmarks";
 type Course = NonNullable<COURSE_BY_SLUG_QUERY_RESULT>;
 type IconProps = { className?: string };
 
+/** Renders the arrow used by course calls to action. */
 function ArrowRight({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -22,6 +23,7 @@ function ArrowRight({ className }: IconProps) {
   );
 }
 
+/** Renders the breadcrumb separator. */
 function ChevronRight() {
   return (
     <svg viewBox="0 0 18 18" fill="none" aria-hidden="true">
@@ -30,6 +32,7 @@ function ChevronRight() {
   );
 }
 
+/** Renders the course bookmark icon in its saved or unsaved state. */
 function Bookmark({ filled = false }: { filled?: boolean }) {
   return (
     <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} aria-hidden="true">
@@ -38,6 +41,7 @@ function Bookmark({ filled = false }: { filled?: boolean }) {
   );
 }
 
+/** Renders the course-level metadata icon. */
 function LevelIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -46,6 +50,7 @@ function LevelIcon() {
   );
 }
 
+/** Renders the course-duration metadata icon. */
 function ClockIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -55,6 +60,7 @@ function ClockIcon() {
   );
 }
 
+/** Renders the module-count metadata icon. */
 function DocumentIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -64,6 +70,7 @@ function DocumentIcon() {
   );
 }
 
+/** Renders the learner-count metadata icon. */
 function StudentsIcon() {
   return (
     <svg viewBox="0 0 22 20" fill="none" aria-hidden="true">
@@ -85,6 +92,7 @@ const outcomePaths: Record<string, React.ReactNode> = {
   sparkles: <><path d="M12 2.5c.7 4.2 2.8 6.3 7 7-4.2.7-6.3 2.8-7 7-.7-4.2-2.8-6.3-7-7 4.2-.7 6.3-2.8 7-7Z" /><path d="M19 15.5c.3 1.8 1.2 2.7 3 3-1.8.3-2.7 1.2-3 3-.3-1.8-1.2-2.7-3-3 1.8-.3 2.7-1.2 3-3Z" /></>,
 };
 
+/** Resolves a learning-outcome token to its visual icon. */
 function OutcomeIcon({ token }: { token: string }) {
   const paths = outcomePaths[token];
   if (!paths) return <span className="course-outcome-fallback" aria-label={`${token} icon`}>{token.slice(0, 1).toUpperCase()}</span>;
@@ -95,6 +103,7 @@ function OutcomeIcon({ token }: { token: string }) {
   );
 }
 
+/** Formats a duration in seconds as a compact hours-and-minutes label. */
 function formatDuration(seconds: number) {
   const minutes = Math.max(0, Math.round(seconds / 60));
   const hours = Math.floor(minutes / 60);
@@ -103,14 +112,17 @@ function formatDuration(seconds: number) {
   return remaining ? `${hours}h ${remaining}m` : `${hours}h`;
 }
 
+/** Formats a stored course level for display. */
 function formatLevel(level: Course["level"]) {
   return level === "all-levels" ? "All levels" : level.charAt(0).toUpperCase() + level.slice(1);
 }
 
+/** Formats a learner count using compact English notation. */
 function formatStudents(count: number) {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(count).toLowerCase();
 }
 
+/** Maps Sanity course modules into the curriculum component's view model. */
 function getCurriculum(course: Course) {
   return (course.modules ?? []).map((module, moduleIndex): CurriculumModule => {
     const lessons = (module.lessons ?? []).filter((lesson): lesson is NonNullable<typeof lesson> => Boolean(lesson?.slug));
@@ -131,6 +143,7 @@ function getCurriculum(course: Course) {
   });
 }
 
+/** Renders an interactive course detail page with progress and bookmarks. */
 export function CoursePage({ course }: { course: Course }) {
   const { getCourseProgress, isLessonCompleted, recordResume } = useLearnerProgress();
   const { isBookmarked, toggleBookmark } = useBookmarks();
@@ -215,6 +228,7 @@ export function CoursePage({ course }: { course: Course }) {
     return `/lessons/${targetLesson.slug}`;
   }, [targetLesson, progress.lastPositionSeconds, progress.lastLessonId]);
 
+  /** Records course CTA usage and resume analytics when applicable. */
   const handleCtaClick = (source: string) => {
     if (
       targetLesson &&
@@ -236,6 +250,7 @@ export function CoursePage({ course }: { course: Course }) {
 
   const isCurrentBookmarked = isBookmarked(course._id);
 
+  /** Toggles the course bookmark and displays transient confirmation. */
   const handleToggleBookmark = () => {
     const isNowBookmarked = toggleBookmark({
       id: course._id,

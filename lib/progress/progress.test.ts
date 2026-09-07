@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { CourseProgressSummary, ProgressRecord } from './types'
 
+/** Mirrors provider progress calculations for focused unit coverage. */
 function calculateProgress(
   record: ProgressRecord | undefined,
   totalLessons?: number,
