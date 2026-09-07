@@ -9,10 +9,7 @@ const projectId = assertEnvironmentVariable(
   process.env.SANITY_STUDIO_PROJECT_ID,
   'SANITY_STUDIO_PROJECT_ID',
 )
-const dataset = assertEnvironmentVariable(
-  process.env.SANITY_STUDIO_DATASET,
-  'SANITY_STUDIO_DATASET',
-)
+const dataset = process.env.SANITY_STUDIO_DATASET || 'production'
 
 export default defineConfig({
   name: 'lopsis',
