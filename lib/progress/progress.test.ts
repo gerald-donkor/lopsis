@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { getCourseResumeHref } from './resume'
 import type { CourseProgressSummary, ProgressRecord } from './types'
 
 /** Mirrors provider progress calculations for focused unit coverage. */
@@ -125,4 +126,69 @@ test('progress reconciliation: savePosition error rollback reverts only position
   assert.deepEqual(reconciled.completedLessonIds, ['lesson-1', 'lesson-2'])
   assert.equal(reconciled.lastLessonId, 'lesson-1')
   assert.equal(reconciled.lastPositionSeconds, 30)
+})
+
+test('resume href: builds lesson link with start parameter when lastPositionSeconds > 0', () => {
+  const href = getCourseResumeHref('nextjs-production', 'data-fetching-caching', 125.7)
+  assert.equal(href, '/lessons/data-fetching-caching?start=125')
+})
+
+test('resume href: builds lesson link without query when lastPositionSeconds is 0 or omitted', () => {
+  const hrefZero = getCourseResumeHref('nextjs-production', 'data-fetching-caching', 0)
+  assert.equal(hrefZero, '/lessons/data-fetching-caching')
+
+  const hrefUndefined = getCourseResumeHref('nextjs-production', 'data-fetching-caching', undefined)
+  assert.equal(hrefUndefined, '/lessons/data-fetching-caching')
+})
+
+test('resume href: falls back to course overview when lastLessonSlug is nullish', () => {
+  const hrefNull = getCourseResumeHref('nextjs-production', null, 45)
+  assert.equal(hrefNull, '/courses/nextjs-production')
+
+  const hrefEmpty = getCourseResumeHref('docker-essentials', undefined, undefined)
+  assert.equal(hrefEmpty, '/courses/docker-essentials')
+})
+
+test('card progress: determines hasProgress and completion states accurately', () => {
+  // 1. Unstarted
+  const unstarted = calculateProgress(undefined, 8)
+  const hasProgressUnstarted = Boolean(
+    unstarted.completedCount > 0 || unstarted.lastLessonSlug || unstarted.lastLessonId
+  )
+  assert.equal(hasProgressUnstarted, false)
+  assert.equal(unstarted.isCompleted, false)
+
+  // 2. In progress with last watched lesson
+  const inProgress: ProgressRecord = {
+    _id: 'p1',
+    userId: 'u1',
+    courseId: 'c1',
+    completedLessonIds: ['l1'],
+    lastLessonId: 'l2',
+    lastLessonSlug: 'lesson-two',
+    lastPositionSeconds: 50,
+    lastUpdated: new Date().toISOString(),
+  }
+  const progressSummary = calculateProgress(inProgress, 5)
+  const hasProgressInProgress = Boolean(
+    progressSummary.completedCount > 0 || progressSummary.lastLessonSlug || progressSummary.lastLessonId
+  )
+  assert.equal(hasProgressInProgress, true)
+  assert.equal(progressSummary.percentage, 20)
+  assert.equal(progressSummary.isCompleted, false)
+
+  // 3. Completed
+  const completed: ProgressRecord = {
+    _id: 'p2',
+    userId: 'u1',
+    courseId: 'c2',
+    completedLessonIds: ['l1', 'l2', 'l3'],
+    lastLessonId: 'l3',
+    lastLessonSlug: 'lesson-three',
+    lastPositionSeconds: 120,
+    lastUpdated: new Date().toISOString(),
+  }
+  const completedSummary = calculateProgress(completed, 3)
+  assert.equal(completedSummary.percentage, 100)
+  assert.equal(completedSummary.isCompleted, true)
 })
