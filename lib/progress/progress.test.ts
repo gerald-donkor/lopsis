@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { getCourseResumeHref } from './resume'
+import {
+  isModuleCompleted,
+  resolveLessonStartSeconds,
+  shouldAutoCompleteLesson,
+} from './lesson-state'
 import type { CourseProgressSummary, ProgressRecord } from './types'
 
 /** Mirrors provider progress calculations for focused unit coverage. */
@@ -191,4 +196,38 @@ test('card progress: determines hasProgress and completion states accurately', (
   const completedSummary = calculateProgress(completed, 3)
   assert.equal(completedSummary.percentage, 100)
   assert.equal(completedSummary.isCompleted, true)
+})
+
+test('lesson resume: URL timestamp wins, then matching saved position is used', () => {
+  assert.equal(resolveLessonStartSeconds({
+    requestedStartSeconds: 90.8,
+    lessonId: 'lesson-2',
+    savedLessonId: 'lesson-2',
+    savedPositionSeconds: 45.9,
+  }), 90)
+  assert.equal(resolveLessonStartSeconds({
+    requestedStartSeconds: 0,
+    lessonId: 'lesson-2',
+    savedLessonId: 'lesson-2',
+    savedPositionSeconds: 45.9,
+  }), 45)
+  assert.equal(resolveLessonStartSeconds({
+    requestedStartSeconds: 0,
+    lessonId: 'lesson-2',
+    savedLessonId: 'lesson-1',
+    savedPositionSeconds: 45.9,
+  }), 0)
+})
+
+test('module completion: requires a non-empty module with every lesson completed', () => {
+  assert.equal(isModuleCompleted([], []), false)
+  assert.equal(isModuleCompleted(['lesson-1', 'lesson-2'], ['lesson-1']), false)
+  assert.equal(isModuleCompleted(['lesson-1', 'lesson-2'], ['lesson-2', 'lesson-1']), true)
+})
+
+test('video auto-completion: only triggers for signed-in incomplete lessons with a course', () => {
+  assert.equal(shouldAutoCompleteLesson('course-1', true, false), true)
+  assert.equal(shouldAutoCompleteLesson('course-1', true, true), false)
+  assert.equal(shouldAutoCompleteLesson('course-1', false, false), false)
+  assert.equal(shouldAutoCompleteLesson(null, true, false), false)
 })

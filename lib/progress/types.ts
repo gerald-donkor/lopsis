@@ -63,6 +63,7 @@ export interface LearnerProgressContextValue {
     courseId: string,
     lessonId: string,
     positionSeconds: number,
+    options?: { keepalive?: boolean },
   ) => Promise<void>;
   recordResume: (
     courseId: string,
