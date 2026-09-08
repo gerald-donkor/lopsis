@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import posthog from "posthog-js";
 import type { COURSES_QUERY_RESULT } from "@/sanity.types";
 import { SiteHeader } from "@/components/site-header";
+import { getCourseResumeHref, useLearnerProgress } from "@/lib/progress/use-learner-progress";
 import { urlFor } from "@/sanity/lib/image";
 
 type IconProps = { className?: string };
@@ -210,13 +212,67 @@ function CourseIcon({ course }: { course: Course }) {
 }
 
 function CourseCard({ course }: { course: Course }) {
+  const { getCourseProgress, isSignedIn } = useLearnerProgress();
   const moduleLabel = `${course.moduleCount} ${course.moduleCount === 1 ? "module" : "modules"}`;
+  const lessonCount = course.lessonCount ?? 0;
+  const progress = getCourseProgress(course._id, lessonCount);
+  const hasProgress = Boolean(
+    isSignedIn && (progress.completedCount > 0 || progress.lastLessonSlug || progress.lastLessonId)
+  );
+  const resumeHref = getCourseResumeHref(
+    course.slug,
+    progress.lastLessonSlug,
+    progress.lastPositionSeconds
+  );
 
   return (
     <article className="home-course-card">
       <div className="home-course-logo"><CourseIcon course={course} /></div>
       <h3><Link href={`/courses/${course.slug}`} onClick={() => posthog.capture("home_course_clicked", { course_id: course._id, course_slug: course.slug })}>{course.title}</Link></h3>
       <p>{course.summary}</p>
+
+      {hasProgress && (
+        <div className="home-course-progress" aria-label={`Course progress: ${progress.percentage}% complete`}>
+          <div className="home-course-progress-header">
+            <span className="home-course-progress-percentage">{progress.percentage}% complete</span>
+            {progress.isCompleted ? (
+              <span className="home-course-completed-badge">
+                <svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="m3.5 9.5 3.5 3.5 7.5-8" />
+                </svg>
+                Completed
+              </span>
+            ) : (
+              <Link
+                href={resumeHref}
+                className="home-course-resume-btn"
+                aria-label={`Resume ${course.title}`}
+                onClick={() =>
+                  posthog.capture("course_resume_clicked", {
+                    course_id: course._id,
+                    course_slug: course.slug,
+                    lesson_slug: progress.lastLessonSlug,
+                    position_seconds: progress.lastPositionSeconds,
+                    source: "home_card",
+                  })
+                }
+              >
+                Resume <ArrowRight className="home-course-resume-arrow" />
+              </Link>
+            )}
+          </div>
+          <div
+            className="home-course-progress-track"
+            role="progressbar"
+            aria-valuenow={progress.percentage}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <span style={{ width: `${progress.percentage}%` }} />
+          </div>
+        </div>
+      )}
+
       <div className="home-course-meta">
         <span><Level />{formatLevel(course.level)}</span>
         <span><Clock />{formatDuration(course.durationSeconds)}</span>
@@ -239,6 +295,27 @@ function BottomGlow() {
 }
 
 export default function HomePage({ courses }: { courses: COURSES_QUERY_RESULT }) {
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        posthog.capture("search_shortcut_used", { source: "home_page" });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handleKbdClick = () => {
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  };
+
   return (
     <div className="home-shell">
       <div className="home-canvas">
@@ -253,8 +330,17 @@ export default function HomePage({ courses }: { courses: COURSES_QUERY_RESULT })
             <form className="home-search" role="search" action="/search">
               <Search />
               <label className="sr-only" htmlFor="learning-search">Search your learning</label>
-              <input id="learning-search" name="q" type="search" maxLength={240} required placeholder="Ask anything about your learning..." onFocus={() => posthog.capture("search_focused")} />
-              <kbd>⌘ K</kbd>
+              <input
+                ref={searchInputRef}
+                id="learning-search"
+                name="q"
+                type="search"
+                maxLength={240}
+                required
+                placeholder="Ask anything about your learning..."
+                onFocus={() => posthog.capture("search_focused")}
+              />
+              <kbd onClick={handleKbdClick} style={{ cursor: "pointer" }}>⌘ K</kbd>
             </form>
           </section>
 

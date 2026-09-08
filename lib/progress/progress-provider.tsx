@@ -271,6 +271,7 @@ export function LearnerProgressProvider({
       courseId: string,
       lessonId: string,
       positionSeconds: number,
+      options?: { keepalive?: boolean },
     ): Promise<void> => {
       if (!isSignedIn) return
 
@@ -297,6 +298,7 @@ export function LearnerProgressProvider({
       try {
         const response = await fetch('/api/progress', {
           method: 'POST',
+          keepalive: options?.keepalive,
           headers: {
             'Content-Type': 'application/json',
           },

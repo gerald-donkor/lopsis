@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { getCourseResumeHref } from './resume'
+import {
+  isModuleCompleted,
+  resolveLessonStartSeconds,
+  shouldAutoCompleteLesson,
+} from './lesson-state'
 import type { CourseProgressSummary, ProgressRecord } from './types'
 
 /** Mirrors provider progress calculations for focused unit coverage. */
@@ -125,4 +131,103 @@ test('progress reconciliation: savePosition error rollback reverts only position
   assert.deepEqual(reconciled.completedLessonIds, ['lesson-1', 'lesson-2'])
   assert.equal(reconciled.lastLessonId, 'lesson-1')
   assert.equal(reconciled.lastPositionSeconds, 30)
+})
+
+test('resume href: builds lesson link with start parameter when lastPositionSeconds > 0', () => {
+  const href = getCourseResumeHref('nextjs-production', 'data-fetching-caching', 125.7)
+  assert.equal(href, '/lessons/data-fetching-caching?start=125')
+})
+
+test('resume href: builds lesson link without query when lastPositionSeconds is 0 or omitted', () => {
+  const hrefZero = getCourseResumeHref('nextjs-production', 'data-fetching-caching', 0)
+  assert.equal(hrefZero, '/lessons/data-fetching-caching')
+
+  const hrefUndefined = getCourseResumeHref('nextjs-production', 'data-fetching-caching', undefined)
+  assert.equal(hrefUndefined, '/lessons/data-fetching-caching')
+})
+
+test('resume href: falls back to course overview when lastLessonSlug is nullish', () => {
+  const hrefNull = getCourseResumeHref('nextjs-production', null, 45)
+  assert.equal(hrefNull, '/courses/nextjs-production')
+
+  const hrefEmpty = getCourseResumeHref('docker-essentials', undefined, undefined)
+  assert.equal(hrefEmpty, '/courses/docker-essentials')
+})
+
+test('card progress: determines hasProgress and completion states accurately', () => {
+  // 1. Unstarted
+  const unstarted = calculateProgress(undefined, 8)
+  const hasProgressUnstarted = Boolean(
+    unstarted.completedCount > 0 || unstarted.lastLessonSlug || unstarted.lastLessonId
+  )
+  assert.equal(hasProgressUnstarted, false)
+  assert.equal(unstarted.isCompleted, false)
+
+  // 2. In progress with last watched lesson
+  const inProgress: ProgressRecord = {
+    _id: 'p1',
+    userId: 'u1',
+    courseId: 'c1',
+    completedLessonIds: ['l1'],
+    lastLessonId: 'l2',
+    lastLessonSlug: 'lesson-two',
+    lastPositionSeconds: 50,
+    lastUpdated: new Date().toISOString(),
+  }
+  const progressSummary = calculateProgress(inProgress, 5)
+  const hasProgressInProgress = Boolean(
+    progressSummary.completedCount > 0 || progressSummary.lastLessonSlug || progressSummary.lastLessonId
+  )
+  assert.equal(hasProgressInProgress, true)
+  assert.equal(progressSummary.percentage, 20)
+  assert.equal(progressSummary.isCompleted, false)
+
+  // 3. Completed
+  const completed: ProgressRecord = {
+    _id: 'p2',
+    userId: 'u1',
+    courseId: 'c2',
+    completedLessonIds: ['l1', 'l2', 'l3'],
+    lastLessonId: 'l3',
+    lastLessonSlug: 'lesson-three',
+    lastPositionSeconds: 120,
+    lastUpdated: new Date().toISOString(),
+  }
+  const completedSummary = calculateProgress(completed, 3)
+  assert.equal(completedSummary.percentage, 100)
+  assert.equal(completedSummary.isCompleted, true)
+})
+
+test('lesson resume: URL timestamp wins, then matching saved position is used', () => {
+  assert.equal(resolveLessonStartSeconds({
+    requestedStartSeconds: 90.8,
+    lessonId: 'lesson-2',
+    savedLessonId: 'lesson-2',
+    savedPositionSeconds: 45.9,
+  }), 90)
+  assert.equal(resolveLessonStartSeconds({
+    requestedStartSeconds: 0,
+    lessonId: 'lesson-2',
+    savedLessonId: 'lesson-2',
+    savedPositionSeconds: 45.9,
+  }), 45)
+  assert.equal(resolveLessonStartSeconds({
+    requestedStartSeconds: 0,
+    lessonId: 'lesson-2',
+    savedLessonId: 'lesson-1',
+    savedPositionSeconds: 45.9,
+  }), 0)
+})
+
+test('module completion: requires a non-empty module with every lesson completed', () => {
+  assert.equal(isModuleCompleted([], []), false)
+  assert.equal(isModuleCompleted(['lesson-1', 'lesson-2'], ['lesson-1']), false)
+  assert.equal(isModuleCompleted(['lesson-1', 'lesson-2'], ['lesson-2', 'lesson-1']), true)
+})
+
+test('video auto-completion: only triggers for signed-in incomplete lessons with a course', () => {
+  assert.equal(shouldAutoCompleteLesson('course-1', true, false), true)
+  assert.equal(shouldAutoCompleteLesson('course-1', true, true), false)
+  assert.equal(shouldAutoCompleteLesson('course-1', false, false), false)
+  assert.equal(shouldAutoCompleteLesson(null, true, false), false)
 })

@@ -5,6 +5,7 @@ import Link from "next/link";
 import posthog from "posthog-js";
 import type { COURSES_QUERY_RESULT } from "@/sanity.types";
 import { SiteHeader } from "@/components/site-header";
+import { getCourseResumeHref, useLearnerProgress } from "@/lib/progress/use-learner-progress";
 import { urlFor } from "@/sanity/lib/image";
 
 type Course = COURSES_QUERY_RESULT[number];
@@ -33,6 +34,7 @@ function formatLevel(level: Course["level"] | null | undefined) {
 }
 
 function CourseCard({ course }: { course: Course }) {
+  const { getCourseProgress, isSignedIn } = useLearnerProgress();
   const href = `/courses/${course.slug}`;
   const imageSource = course.coverImage?.asset
     ? urlFor(course.coverImage).width(900).height(560).fit("crop").auto("format").url()
@@ -40,6 +42,17 @@ function CourseCard({ course }: { course: Course }) {
   const blurDataURL = course.coverImage?.asset?.metadata?.lqip ?? undefined;
   const level = formatLevel(course.level);
   const moduleCount = course.moduleCount ?? 0;
+  const lessonCount = course.lessonCount ?? 0;
+
+  const progress = getCourseProgress(course._id, lessonCount);
+  const hasProgress = Boolean(
+    isSignedIn && (progress.completedCount > 0 || progress.lastLessonSlug || progress.lastLessonId)
+  );
+  const resumeHref = getCourseResumeHref(
+    course.slug,
+    progress.lastLessonSlug,
+    progress.lastPositionSeconds
+  );
 
   return (
     <article className="catalog-card">
@@ -61,19 +74,141 @@ function CourseCard({ course }: { course: Course }) {
       <div className="catalog-card-body">
         <div className="catalog-card-context">
           {course.category?.title && <span>{course.category.title}</span>}
-          {course.instructor?.name && <span>By {course.instructor.name}</span>}
+          {course.instructor?.name && (
+            course.instructor.slug ? (
+              <Link
+                href={`/instructors/${course.instructor.slug}`}
+                className="catalog-card-instructor"
+                onClick={() =>
+                  posthog.capture("catalog_instructor_clicked", {
+                    instructor_id: course.instructor?._id,
+                    instructor_slug: course.instructor?.slug,
+                    course_id: course._id,
+                    course_slug: course.slug,
+                  })
+                }
+              >
+                By {course.instructor.name}
+              </Link>
+            ) : (
+              <span>By {course.instructor.name}</span>
+            )
+          )}
         </div>
         <h2><Link href={href}>{course.title}</Link></h2>
         {course.summary && <p>{course.summary}</p>}
+
+        {hasProgress && (
+          <div
+            className="catalog-card-progress"
+            aria-label={`Course progress: ${progress.percentage}% complete`}
+          >
+            <div
+              className="catalog-card-progress-track"
+              role="progressbar"
+              aria-valuenow={progress.percentage}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <span style={{ width: `${progress.percentage}%` }} />
+            </div>
+            <div className="catalog-card-progress-labels">
+              <span className="catalog-card-progress-pct">
+                {progress.percentage}% complete
+              </span>
+              {lessonCount > 0 && (
+                <span className="catalog-card-progress-count">
+                  {progress.completedCount} of {lessonCount}{" "}
+                  {lessonCount === 1 ? "lesson" : "lessons"}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="catalog-card-footer">
           <div className="catalog-card-meta" aria-label="Course details">
             {level && <span>{level}</span>}
             <span>{formatDuration(course.durationSeconds)}</span>
             <span>{moduleCount} {moduleCount === 1 ? "module" : "modules"}</span>
           </div>
-          <Link className="catalog-card-action" href={href} aria-label={`View course: ${course.title}`} onClick={() => posthog.capture("all_courses_course_clicked", { course_id: course._id, course_slug: course.slug })}>
-            View course <ArrowRight />
-          </Link>
+          <div className="catalog-card-actions">
+            {hasProgress && !progress.isCompleted ? (
+              <>
+                <Link
+                  className="catalog-card-resume-action"
+                  href={resumeHref}
+                  aria-label={`Resume ${course.title}`}
+                  onClick={() =>
+                    posthog.capture("course_resume_clicked", {
+                      course_id: course._id,
+                      course_slug: course.slug,
+                      lesson_slug: progress.lastLessonSlug,
+                      position_seconds: progress.lastPositionSeconds,
+                      source: "catalog_card",
+                    })
+                  }
+                >
+                  Resume <ArrowRight />
+                </Link>
+                <Link
+                  className="catalog-card-action catalog-card-action-secondary"
+                  href={href}
+                  aria-label={`View course: ${course.title}`}
+                  onClick={() =>
+                    posthog.capture("all_courses_course_clicked", {
+                      course_id: course._id,
+                      course_slug: course.slug,
+                    })
+                  }
+                >
+                  Details
+                </Link>
+              </>
+            ) : (
+              <Link
+                className="catalog-card-action"
+                href={href}
+                aria-label={
+                  hasProgress && progress.isCompleted
+                    ? `Review course: ${course.title}`
+                    : `View course: ${course.title}`
+                }
+                onClick={() =>
+                  posthog.capture("all_courses_course_clicked", {
+                    course_id: course._id,
+                    course_slug: course.slug,
+                  })
+                }
+              >
+                {hasProgress && progress.isCompleted ? (
+                  <>
+                    <span className="catalog-card-completed-text">
+                      <svg
+                        viewBox="0 0 18 18"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="m3.5 9.5 3.5 3.5 7.5-8" />
+                      </svg>
+                      Completed
+                    </span>{" "}
+                    · Review course <ArrowRight />
+                  </>
+                ) : (
+                  <>
+                    View course <ArrowRight />
+                  </>
+                )}
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </article>

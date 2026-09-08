@@ -1,9 +1,11 @@
 "use client";
 
 import type Player from "@vimeo/player";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import posthog from "posthog-js";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
+import { useLearnerProgress } from "@/lib/progress/use-learner-progress";
+import { resolveLessonStartSeconds, shouldAutoCompleteLesson } from "@/lib/progress/lesson-state";
 import { createEmbedUrl } from "@/lib/search/timestamp-resolution";
 type TimingData = { duration?: number; percent?: number; seconds?: number };
 type YouTubePlayerInstance = {
@@ -37,6 +39,8 @@ declare global {
 }
 
 const DEPTH_MILESTONES = [25, 50, 75, 90, 100] as const;
+const POSITION_SAVE_INTERVAL_MS = 15_000;
+const MINIMUM_RESUME_SECONDS = 5;
 let youtubeApiPromise: Promise<void> | null = null;
 let bunnyApiPromise: Promise<void> | null = null;
 
@@ -108,12 +112,65 @@ type LessonVideoProps = {
  * Player remounts when video source or playback context changes to ensure correct initialization.
  */
 export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, lessonSlug, lessonTitle, startSeconds, videoUrl }: LessonVideoProps) {
+  const { records, isSignedIn, isLessonCompleted, recordResume, savePosition, toggleComplete } = useLearnerProgress();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playedRef = useRef(false);
   const failuresRef = useRef(new Set<string>());
   const reachedDepthsRef = useRef(new Set<number>());
-  const embed = useMemo(() => createEmbedUrl(videoUrl, startSeconds), [startSeconds, videoUrl]);
-  const playerKey = JSON.stringify([videoUrl, embed?.src, courseId, courseSlug, durationSeconds, lessonId, lessonSlug, startSeconds]);
+  const currentPositionRef = useRef(0);
+  const lastSavedAtRef = useRef(0);
+  const lastSavedPositionRef = useRef(0);
+  const resumedLessonRef = useRef<string | null>(null);
+  const progressActionsRef = useRef({ isSignedIn, isCompleted: false, recordResume, savePosition, toggleComplete });
+  const progressRecord = courseId ? records[courseId] : undefined;
+  const savedResumeSeconds = resolveLessonStartSeconds({
+    requestedStartSeconds: 0,
+    lessonId,
+    savedLessonId: progressRecord?.lastLessonId,
+    savedPositionSeconds: progressRecord?.lastPositionSeconds,
+  });
+  const completed = courseId ? isLessonCompleted(courseId, lessonId) : false;
+  const [startedPlayback, setStartedPlayback] = useState<{
+    lessonId: string;
+    queryStartSeconds: number;
+    effectiveStartSeconds: number;
+  } | null>(null);
+  const desiredStartSeconds = resolveLessonStartSeconds({
+    requestedStartSeconds: startSeconds,
+    lessonId,
+    savedLessonId: progressRecord?.lastLessonId,
+    savedPositionSeconds: progressRecord?.lastPositionSeconds,
+  });
+  const effectiveStartSeconds =
+    startedPlayback?.lessonId === lessonId &&
+    startedPlayback.queryStartSeconds === startSeconds
+      ? startedPlayback.effectiveStartSeconds
+      : desiredStartSeconds;
+  const embed = useMemo(() => createEmbedUrl(videoUrl, effectiveStartSeconds), [effectiveStartSeconds, videoUrl]);
+  const playerKey = JSON.stringify([videoUrl, embed?.src, courseId, courseSlug, durationSeconds, lessonId, lessonSlug, effectiveStartSeconds]);
+
+  useEffect(() => {
+    progressActionsRef.current = {
+      isSignedIn,
+      isCompleted: completed,
+      recordResume,
+      savePosition,
+      toggleComplete,
+    };
+  }, [completed, isSignedIn, recordResume, savePosition, toggleComplete]);
+
+  useEffect(() => {
+    if (
+      startSeconds === 0 &&
+      savedResumeSeconds > MINIMUM_RESUME_SECONDS &&
+      courseId &&
+      isSignedIn &&
+      resumedLessonRef.current !== lessonId
+    ) {
+      resumedLessonRef.current = lessonId;
+      void recordResume(courseId, lessonId, savedResumeSeconds);
+    }
+  }, [courseId, isSignedIn, lessonId, recordResume, savedResumeSeconds, startSeconds]);
 
   useEffect(() => {
     posthog.capture(ANALYTICS_EVENTS.lessonViewed, {
@@ -146,10 +203,13 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
     let vimeoPlayer: Player | null = null;
     let bunnyPlayer: BunnyPlayer | null = null;
     const bunnyCleanups: Array<[string, BunnyCallback]> = [];
-    const initialDepth = durationSeconds && durationSeconds > 0 ? (startSeconds / durationSeconds) * 100 : 0;
+    const initialDepth = durationSeconds && durationSeconds > 0 ? (effectiveStartSeconds / durationSeconds) * 100 : 0;
     reachedDepthsRef.current = new Set(DEPTH_MILESTONES.filter((milestone) => milestone <= initialDepth));
     playedRef.current = false;
     failuresRef.current = new Set();
+    currentPositionRef.current = effectiveStartSeconds;
+    lastSavedPositionRef.current = effectiveStartSeconds;
+    lastSavedAtRef.current = Date.now();
 
     const baseProperties = {
       provider: activeEmbed.provider.toLowerCase(),
@@ -157,7 +217,7 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
       course_slug: courseSlug ?? undefined,
       lesson_id: lessonId,
       lesson_slug: lessonSlug,
-      start_seconds: startSeconds,
+      start_seconds: effectiveStartSeconds,
     };
 
     function captureFailure(failureType: "player_api_unavailable" | "provider_error") {
@@ -166,9 +226,15 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
       posthog.capture(ANALYTICS_EVENTS.videoPlaybackFailed, { ...baseProperties, failure_type: failureType });
     }
 
-    function recordPlay(position = startSeconds, duration = durationSeconds ?? undefined) {
+    function recordPlay(position = effectiveStartSeconds, duration = durationSeconds ?? undefined) {
       if (playedRef.current) return;
       playedRef.current = true;
+      setStartedPlayback({
+        lessonId,
+        queryStartSeconds: startSeconds,
+        effectiveStartSeconds,
+      });
+      currentPositionRef.current = position;
       posthog.capture(ANALYTICS_EVENTS.videoPlayed, {
         ...baseProperties,
         position_seconds: Math.max(0, Math.round(position)),
@@ -178,6 +244,7 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
 
     function recordProgress(position: number, duration: number) {
       if (!Number.isFinite(position) || !Number.isFinite(duration) || duration <= 0) return;
+      currentPositionRef.current = Math.max(0, position);
       const percent = Math.max(0, Math.min(100, (position / duration) * 100));
       for (const milestone of DEPTH_MILESTONES) {
         if (percent < milestone || reachedDepthsRef.current.has(milestone)) continue;
@@ -191,14 +258,44 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
       }
     }
 
+    function persistPosition(position: number, force = false, keepalive = false) {
+      const actions = progressActionsRef.current;
+      if (
+        !courseId ||
+        !actions.isSignedIn ||
+        actions.isCompleted ||
+        !playedRef.current ||
+        !Number.isFinite(position) ||
+        position <= MINIMUM_RESUME_SECONDS
+      ) return;
+
+      const roundedPosition = Math.max(0, Math.floor(position));
+      const enoughTimePassed = Date.now() - lastSavedAtRef.current >= POSITION_SAVE_INTERVAL_MS;
+      const positionChanged = Math.abs(roundedPosition - lastSavedPositionRef.current) >= 2;
+      if ((!force && !enoughTimePassed) || !positionChanged) return;
+
+      lastSavedAtRef.current = Date.now();
+      lastSavedPositionRef.current = roundedPosition;
+      void actions.savePosition(courseId, lessonId, roundedPosition, { keepalive });
+    }
+
     function recordCompleted(position: number, duration: number) {
+      currentPositionRef.current = Math.max(0, position);
       recordProgress(duration, duration);
       posthog.capture(ANALYTICS_EVENTS.videoCompleted, {
         ...baseProperties,
         position_seconds: Math.max(0, Math.round(position)),
         duration_seconds: duration > 0 ? Math.round(duration) : undefined,
       });
+      const actions = progressActionsRef.current;
+      if (courseId && shouldAutoCompleteLesson(courseId, actions.isSignedIn, actions.isCompleted)) {
+        actions.isCompleted = true;
+        void actions.toggleComplete(courseId, lessonId, true, "video_ended");
+      }
     }
+
+    const handleBeforeUnload = () => persistPosition(currentPositionRef.current, true, true);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     async function connectPlayer() {
       try {
@@ -209,8 +306,8 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
           youtubePlayer = new window.YT.Player(iframe, {
             events: {
               onReady: (event) => {
-                if (!disposed && startSeconds > 0) {
-                  event.target.seekTo(startSeconds, true);
+                if (!disposed && effectiveStartSeconds > 0) {
+                  event.target.seekTo(effectiveStartSeconds, true);
                 }
               },
               onError: () => captureFailure("provider_error"),
@@ -219,15 +316,22 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
                   recordPlay(event.target.getCurrentTime(), event.target.getDuration());
                   if (youtubeTimer) clearInterval(youtubeTimer);
                   youtubeTimer = setInterval(() => {
-                    if (!disposed && youtubePlayer) recordProgress(youtubePlayer.getCurrentTime(), youtubePlayer.getDuration());
+                    if (!disposed && youtubePlayer) {
+                      const position = youtubePlayer.getCurrentTime();
+                      recordProgress(position, youtubePlayer.getDuration());
+                      persistPosition(position);
+                    }
                   }, 1_000);
                 } else if (event.data === 0) {
                   if (youtubeTimer) clearInterval(youtubeTimer);
                   youtubeTimer = null;
                   recordCompleted(event.target.getCurrentTime(), event.target.getDuration());
-                } else if (event.data === 2 && youtubeTimer) {
-                  clearInterval(youtubeTimer);
-                  youtubeTimer = null;
+                } else if (event.data === 2) {
+                  persistPosition(event.target.getCurrentTime(), true);
+                  if (youtubeTimer) {
+                    clearInterval(youtubeTimer);
+                    youtubeTimer = null;
+                  }
                 }
               },
             },
@@ -239,15 +343,19 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
           const { default: VimeoPlayer } = await import("@vimeo/player");
           if (disposed) return;
           vimeoPlayer = new VimeoPlayer(iframe);
-          if (startSeconds > 0) {
+          if (effectiveStartSeconds > 0) {
             void vimeoPlayer.ready().then(() => {
               if (!disposed && vimeoPlayer) {
-                return vimeoPlayer.setCurrentTime(startSeconds);
+                return vimeoPlayer.setCurrentTime(effectiveStartSeconds);
               }
             }).catch(() => undefined);
           }
           vimeoPlayer.on("play", (data) => recordPlay(data.seconds, data.duration));
-          vimeoPlayer.on("timeupdate", (data) => recordProgress(data.seconds, data.duration));
+          vimeoPlayer.on("timeupdate", (data) => {
+            recordProgress(data.seconds, data.duration);
+            persistPosition(data.seconds);
+          });
+          vimeoPlayer.on("pause", (data) => persistPosition(data.seconds, true));
           vimeoPlayer.on("ended", (data) => recordCompleted(data.seconds, data.duration));
           vimeoPlayer.on("error", () => captureFailure("provider_error"));
           return;
@@ -257,20 +365,21 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
         if (disposed) return;
         if (!window.playerjs?.Player) throw new Error("player_api_unavailable");
         bunnyPlayer = new window.playerjs.Player(iframe);
-        if (startSeconds > 0) {
+        if (effectiveStartSeconds > 0) {
           const onReady: BunnyCallback = () => {
             if (!disposed && bunnyPlayer && typeof bunnyPlayer.setCurrentTime === "function") {
-              bunnyPlayer.setCurrentTime(startSeconds);
+              bunnyPlayer.setCurrentTime(effectiveStartSeconds);
             }
           };
           bunnyCleanups.push(["ready", onReady]);
           bunnyPlayer.on("ready", onReady);
         }
         const onPlay: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordPlay(data.seconds, data.duration); };
-        const onTimeUpdate: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordProgress(data.seconds ?? 0, data.duration ?? durationSeconds ?? 0); };
+        const onTimeUpdate: BunnyCallback = (raw) => { const data = parseTimingData(raw); const position = data.seconds ?? 0; recordProgress(position, data.duration ?? durationSeconds ?? 0); persistPosition(position); };
+        const onPause: BunnyCallback = (raw) => { const data = parseTimingData(raw); persistPosition(data.seconds ?? currentPositionRef.current, true); };
         const onEnded: BunnyCallback = (raw) => { const data = parseTimingData(raw); recordCompleted(data.seconds ?? data.duration ?? 0, data.duration ?? durationSeconds ?? 0); };
         const onError: BunnyCallback = () => captureFailure("provider_error");
-        const eventListeners: Array<[string, BunnyCallback]> = [["play", onPlay], ["timeupdate", onTimeUpdate], ["ended", onEnded], ["error", onError]];
+        const eventListeners: Array<[string, BunnyCallback]> = [["play", onPlay], ["timeupdate", onTimeUpdate], ["pause", onPause], ["ended", onEnded], ["error", onError]];
         for (const [event, callback] of eventListeners) {
           bunnyCleanups.push([event, callback]);
           bunnyPlayer.on(event, callback);
@@ -282,13 +391,15 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
 
     void connectPlayer();
     return () => {
+      persistPosition(currentPositionRef.current, true);
       disposed = true;
+      window.removeEventListener("beforeunload", handleBeforeUnload);
       if (youtubeTimer) clearInterval(youtubeTimer);
       youtubePlayer?.destroy();
       void vimeoPlayer?.destroy().catch(() => undefined);
       if (bunnyPlayer) for (const [event, callback] of bunnyCleanups) bunnyPlayer.off(event, callback);
     };
-  }, [courseId, courseSlug, durationSeconds, embed, lessonId, lessonSlug, startSeconds]);
+  }, [courseId, courseSlug, durationSeconds, effectiveStartSeconds, embed, lessonId, lessonSlug, startSeconds]);
 
   if (!embed) {
     return <div className="lesson-video-unavailable" role="status"><strong>Video unavailable</strong><span>This lesson video cannot be played in Lopsis yet.</span></div>;

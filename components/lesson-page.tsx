@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { PortableText, type PortableTextComponents } from "@portabletext/react";
 import type { LESSON_BY_SLUG_QUERY_RESULT } from "@/sanity.types";
@@ -8,6 +9,10 @@ import { SiteHeader } from "@/components/site-header";
 import { LessonVideo } from "@/components/lesson-video";
 import posthog from "posthog-js";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
+import { useBookmarks } from "@/lib/bookmarks/use-bookmarks";
+import { useLearnerProgress } from "@/lib/progress/use-learner-progress";
+import { isModuleCompleted } from "@/lib/progress/lesson-state";
+import { urlFor } from "@/sanity/lib/image";
 
 type Lesson = NonNullable<LESSON_BY_SLUG_QUERY_RESULT> & {
   module: { moduleIndex: number; lessonIndex: number; moduleNumber: number; lessonNumber: number } | null;
@@ -35,11 +40,12 @@ function Arrow({ direction = "right" }: { direction?: "left" | "right" }) {
   return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={direction === "left" ? "arrow-left" : undefined}><path d="M4 12h15M13 5l7 7-7 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 function Chevron({ up = false }: { up?: boolean }) { return <svg className={up ? "is-up" : undefined} viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
-function Check() { return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.2" stroke="currentColor" strokeWidth="1.4" /><path d="m6.8 10.2 2.1 2.1 4.3-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
+function Check({ filled = false }: { filled?: boolean }) { return <svg viewBox="0 0 20 20" fill={filled ? "currentColor" : "none"} aria-hidden="true"><circle cx="10" cy="10" r="7.2" stroke="currentColor" strokeWidth="1.4" /><path d="m6.8 10.2 2.1 2.1 4.3-4.5" stroke={filled ? "white" : "currentColor"} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function Clock() { return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="7.2" stroke="currentColor" strokeWidth="1.4" /><path d="M10 5.8v4.5l3 1.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>; }
 function Level() { return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3 17v-3M7.7 17v-7M12.3 17V6M17 17V2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>; }
 function Students() { return <svg viewBox="0 0 22 20" fill="none" aria-hidden="true"><circle cx="8" cy="6" r="3" stroke="currentColor" strokeWidth="1.35" /><path d="M2.7 16c.5-3 2.3-4.7 5.3-4.7s4.8 1.7 5.3 4.7M14.5 3.7a2.7 2.7 0 0 1 0 5.2M15.5 11.2c2.3.4 3.7 2 4 4.4" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" /></svg>; }
-function Bookmark() { return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.5 3.5h11v17L12 17l-5.5 3.5v-17Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>; }
+function Bookmark({ filled = false }: { filled?: boolean }) { return <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} aria-hidden="true"><path d="M6.5 3.5h11v17L12 17l-5.5 3.5v-17Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" /></svg>; }
+function PlayCircle() { return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="8" fill="currentColor" /><path d="m8.3 6.8 5 3.2-5 3.2V6.8Z" fill="white" /></svg>; }
 function Tip() { return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18h6M10 21h4M8.4 14.7A6.5 6.5 0 1 1 15.6 14.7c-.7.6-1.1 1.4-1.2 2.3H9.6c-.1-.9-.5-1.7-1.2-2.3Z" stroke="currentColor" strokeWidth="1.55" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 function External() { return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M11 4h5v5M16 4l-7 7M15 11v4H5V5h4" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
 
@@ -52,6 +58,11 @@ function ResourceIcon({ type }: { type: string }) { return <span className="less
 
 export function LessonPage({ lesson, startSeconds }: { lesson: Lesson; startSeconds: number }) {
   const [tab, setTab] = useState<"content" | "notes">("content");
+  const [isMutating, setIsMutating] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { records, getCourseProgress, isLessonCompleted, isSignedIn, toggleComplete } = useLearnerProgress();
+  const { isBookmarked, toggleBookmark } = useBookmarks();
   const course = lesson.course;
   const modules = course?.modules ?? [];
   const [expandedModules, setExpandedModules] = useState(() => new Set(lesson.module ? [lesson.module.moduleIndex] : []));
@@ -61,6 +72,10 @@ export function LessonPage({ lesson, startSeconds }: { lesson: Lesson; startSeco
   const next = currentIndex >= 0 && currentIndex < flatLessons.length - 1 ? flatLessons[currentIndex + 1] : null;
   const summary = firstParagraph(lesson.notes);
   const level = formatLevel(course?.level);
+  const courseProgress = course ? getCourseProgress(course._id, flatLessons.length) : null;
+  const completedLessonIds = course ? records[course._id]?.completedLessonIds ?? [] : [];
+  const isCompleted = course ? isLessonCompleted(course._id, lesson._id) : false;
+  const isCurrentBookmarked = isBookmarked(lesson._id);
 
   const analyticsContext = {
     course_id: course?._id,
@@ -71,6 +86,48 @@ export function LessonPage({ lesson, startSeconds }: { lesson: Lesson; startSeco
 
   function toggleModule(index: number) { setExpandedModules((current) => { const nextSet = new Set(current); if (nextSet.has(index)) nextSet.delete(index); else nextSet.add(index); return nextSet; }); }
 
+  useEffect(() => () => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+  }, []);
+
+  function showToast(message: string) {
+    setToastMessage(message);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 2500);
+  }
+
+  async function handleToggleComplete() {
+    if (!course || !isSignedIn || isMutating) return;
+    const targetCompleted = !isCompleted;
+    setIsMutating(true);
+    const result = await toggleComplete(course._id, lesson._id, targetCompleted, "manual");
+    setIsMutating(false);
+    if (result !== targetCompleted) {
+      showToast("Could not update lesson progress");
+      return;
+    }
+    posthog.capture(
+      targetCompleted ? ANALYTICS_EVENTS.lessonCompleted : "lesson_marked_incomplete",
+      { ...analyticsContext, completion_source: "manual" },
+    );
+    showToast(targetCompleted ? "Lesson marked complete" : "Lesson marked incomplete");
+  }
+
+  function handleToggleBookmark() {
+    const added = toggleBookmark({
+      id: lesson._id,
+      type: "lesson",
+      title: lesson.title,
+      slug: lesson.slug,
+    });
+    showToast(added ? "Added to bookmarks" : "Removed from bookmarks");
+  }
+
+  const instructor = course?.instructor;
+  const instructorImage = instructor?.photo?.asset
+    ? urlFor(instructor.photo).width(80).height(80).fit("crop").auto("format").url()
+    : null;
+
   return <div className="lesson-shell"><div className="lesson-canvas">
     <SiteHeader />
     <div className="lesson-layout">
@@ -78,23 +135,24 @@ export function LessonPage({ lesson, startSeconds }: { lesson: Lesson; startSeco
         <Link href={course ? `/courses/${course.slug}` : "/courses"} className="lesson-back"><Arrow direction="left" /> Back to course</Link>
         <section className="lesson-course-summary">
           <span className="lesson-course-icon" aria-hidden="true">{course?.title.slice(0, 1) ?? "L"}</span>
-          <div><strong>{course?.title ?? "Course"}</strong><span>0% complete</span><i><b /></i></div>
+          <div><strong>{course?.title ?? "Course"}</strong><span>{courseProgress?.percentage ?? 0}% complete</span><i role="progressbar" aria-label="Course completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={courseProgress?.percentage ?? 0}><b style={{ width: `${courseProgress?.percentage ?? 0}%` }} /></i></div>
         </section>
         <ol className="lesson-modules">
-          {modules.map((module, moduleIndex) => { const expanded = expandedModules.has(moduleIndex); const panelId = `lesson-module-${moduleIndex}`; return <li key={module._key} className={lesson.module?.moduleIndex === moduleIndex ? "is-current-module" : undefined}>
-            <button type="button" onClick={() => toggleModule(moduleIndex)} aria-expanded={expanded} aria-controls={panelId}><span className="lesson-module-number">{moduleIndex + 1}</span><span><strong>{module.title}</strong><em>{formatDuration(module.lessons?.reduce((total, item) => total + (item?.durationSeconds ?? 0), 0))}</em></span><Chevron up={expanded} /></button>
-            {expanded && <ol id={panelId} className="lesson-rail-lessons">{(module.lessons ?? []).map((item) => item && <li key={item._id} className={item._id === lesson._id ? "is-current-lesson" : undefined}><span aria-hidden="true" />{item._id === lesson._id ? <strong>{item.title}<em>Now playing</em></strong> : <Link href={`/lessons/${item.slug}`}><strong>{item.title}</strong><em>{formatDuration(item.durationSeconds)}</em></Link>}</li>)}</ol>}
+          {modules.map((module, moduleIndex) => { const expanded = expandedModules.has(moduleIndex); const panelId = `lesson-module-${moduleIndex}`; const moduleLessons = (module.lessons ?? []).filter(Boolean); const moduleCompleted = isModuleCompleted(moduleLessons.map((item) => item._id), completedLessonIds); return <li key={module._key} className={lesson.module?.moduleIndex === moduleIndex ? "is-current-module" : undefined}>
+            <button type="button" onClick={() => toggleModule(moduleIndex)} aria-expanded={expanded} aria-controls={panelId}><span className="lesson-module-number">{moduleIndex + 1}</span><span><strong>{module.title}</strong><em>{formatDuration(module.lessons?.reduce((total, item) => total + (item?.durationSeconds ?? 0), 0))}</em></span>{moduleCompleted ? <span className="lesson-rail-module-check" aria-label="Module completed"><Check filled /></span> : <Chevron up={expanded} />}</button>
+            {expanded && <ol id={panelId} className="lesson-rail-lessons">{moduleLessons.map((item) => { const itemCompleted = Boolean(course && isLessonCompleted(course._id, item._id)); const current = item._id === lesson._id; return <li key={item._id} className={current ? "is-current-lesson" : itemCompleted ? "is-completed-lesson" : undefined}><span aria-hidden="true" />{current ? <strong>{item.title}<em>Now playing</em>{item.freePreview && <small>Free preview</small>}</strong> : <Link href={`/lessons/${item.slug}`}><strong>{item.title}</strong><em>{formatDuration(item.durationSeconds)}</em>{item.freePreview && <small>Free preview</small>}</Link>}{current ? <span className="lesson-rail-play-icon"><PlayCircle /></span> : itemCompleted ? <span className="lesson-rail-lesson-check" aria-label="Lesson completed"><Check filled /></span> : null}</li>; })}</ol>}
           </li>; })}
         </ol>
       </aside>
       <main className="lesson-main">
         <nav className="lesson-breadcrumb" aria-label="Breadcrumb"><Link href="/courses">All Courses</Link><span>›</span>{course && <><Link href={`/courses/${course.slug}`}>{course.title}</Link><span>›</span></>}{lesson.module && <><span>{modules[lesson.module.moduleIndex]?.title}</span><span>›</span></>}<b>{lesson.title}</b></nav>
-        <section className="lesson-header"><p>Lesson {lesson.module?.moduleNumber ?? 1}.{lesson.module?.lessonNumber ?? 1}</p><div><h1>{lesson.title}</h1><button type="button" aria-label="Bookmark lesson"><Bookmark /></button></div>{summary && <p className="lesson-summary">{summary}</p>}<div className="lesson-meta"><span><Clock /> {formatDuration(lesson.durationSeconds)}</span>{level && <span><Level /> {level}</span>}<span><Students /> {formatStudents(lesson.studentCount)} students</span></div></section>
+        <section className="lesson-header"><p>Lesson {lesson.module?.moduleNumber ?? 1}.{lesson.module?.lessonNumber ?? 1}</p><div className="lesson-title-row"><h1>{lesson.title}</h1><div className="lesson-header-actions"><button type="button" className={`lesson-complete-btn ${isCompleted ? "is-completed" : ""}`} onClick={() => void handleToggleComplete()} aria-label={!isSignedIn ? "Sign in to mark this lesson complete" : isCompleted ? `Mark ${lesson.title} incomplete` : `Mark ${lesson.title} complete`} aria-pressed={isCompleted} disabled={!course || !isSignedIn || isMutating}><Check filled={isCompleted} /><span>{isMutating ? "Saving…" : isCompleted ? "Completed" : "Mark complete"}</span></button><button type="button" className={`lesson-bookmark ${isCurrentBookmarked ? "is-bookmarked" : ""}`} onClick={handleToggleBookmark} aria-label={isCurrentBookmarked ? `Remove bookmark for ${lesson.title}` : `Bookmark ${lesson.title}`} aria-pressed={isCurrentBookmarked} title={isCurrentBookmarked ? "Remove bookmark" : "Bookmark lesson"}><Bookmark filled={isCurrentBookmarked} /></button></div></div>{summary && <p className="lesson-summary">{summary}</p>}{instructor && <div className="lesson-instructor"><Link href={`/instructors/${instructor.slug}`} className="lesson-instructor-avatar" tabIndex={-1} aria-hidden="true">{instructorImage ? <Image src={instructorImage} alt="" width={40} height={40} placeholder={instructor.photo?.asset?.metadata?.lqip ? "blur" : "empty"} blurDataURL={instructor.photo?.asset?.metadata?.lqip ?? undefined} /> : <span>{instructor.name.slice(0, 1)}</span>}</Link><div><small>Taught by</small><Link href={`/instructors/${instructor.slug}`} onClick={() => posthog.capture("lesson_instructor_clicked", analyticsContext)}>{instructor.name}</Link>{instructor.expertise?.length ? <span>{instructor.expertise.join(" · ")}</span> : null}</div></div>}<div className="lesson-meta"><span><Clock /> {formatDuration(lesson.durationSeconds)}</span>{level && <span><Level /> {level}</span>}<span><Students /> {formatStudents(lesson.studentCount)} students</span></div></section>
         <LessonVideo courseId={course?._id ?? null} courseSlug={course?.slug ?? null} durationSeconds={lesson.durationSeconds} lessonId={lesson._id} lessonSlug={lesson.slug} lessonTitle={lesson.title} videoUrl={lesson.videoUrl} startSeconds={startSeconds} />
         <section className="lesson-content"><div className="lesson-tabs" role="tablist" aria-label="Lesson details"><button type="button" id="lesson-content-tab" role="tab" aria-selected={tab === "content"} aria-controls="lesson-content-panel" onClick={() => { if (tab !== "content") posthog.capture(ANALYTICS_EVENTS.lessonTabSelected, { ...analyticsContext, tab: "content" }); setTab("content"); }}>Lesson Content</button><button type="button" id="lesson-notes-tab" role="tab" aria-selected={tab === "notes"} aria-controls="lesson-content-panel" onClick={() => { if (tab !== "notes") posthog.capture(ANALYTICS_EVENTS.lessonTabSelected, { ...analyticsContext, tab: "notes" }); setTab("notes"); }}>Notes</button></div><div id="lesson-content-panel" role="tabpanel" aria-labelledby={tab === "content" ? "lesson-content-tab" : "lesson-notes-tab"} className="lesson-prose">{tab === "content" && <><h2>Overview</h2>{lesson.notes && <PortableText value={lesson.notes} components={portableTextComponents} />}{lesson.keyPoints?.length ? <section className="lesson-key-points"><h3>In this lesson you will:</h3><ul>{lesson.keyPoints.map((point) => <li key={point}><Check />{point}</li>)}</ul></section> : null}{lesson.proTip && <aside className="lesson-pro-tip"><Tip /><div><strong>Pro Tip</strong><p>{lesson.proTip}</p></div></aside>}</>}{tab === "notes" && (lesson.notes ? <PortableText value={lesson.notes} components={portableTextComponents} /> : <p>No notes are available for this lesson.</p>)}</div></section>
         {lesson.resources?.length ? <section className="lesson-resources"><h2>Resources</h2><div>{lesson.resources.map((resource, index) => <a key={resource._key} href={resource.url} target="_blank" rel="noreferrer noopener" onClick={() => posthog.capture(ANALYTICS_EVENTS.lessonResourceOpened, { ...analyticsContext, resource_key: resource._key, resource_index: index + 1, resource_type: resource.type })}><ResourceIcon type={resource.type} /><span><strong>{resource.title}</strong><small>{resource.description}</small></span><External /></a>)}</div></section> : null}
       </main>
     </div>
     <nav className="lesson-pagination" aria-label="Lesson navigation"><div>{previous ? <Link href={`/lessons/${previous.slug}`}><Arrow direction="left" /><span><small>Previous Lesson</small><strong>{previous.title}</strong></span></Link> : <span />}</div><div>{next ? <Link href={`/lessons/${next.slug}`}><span><small>Next Lesson</small><strong>{next.title}</strong></span><Arrow /></Link> : <span />}</div></nav>
+    {toastMessage && <div className="lesson-toast" role="status" aria-live="polite">{toastMessage}</div>}
   </div></div>;
 }
