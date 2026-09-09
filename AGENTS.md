@@ -62,6 +62,19 @@ To accelerate the development cycle through the build plan (section 15):
   5. Update the task status in section 15 from `[ ]` to `[x]`.
   6. Return the standard three-heading completion report (`What I did`, `Test`, `Needs your attention`).
 
+### Model Variant Policy (OpenCode Muse Spark 1.3 Free)
+
+This is optimal for the `i` / `y` loop above.
+
+- `high` for `i` (plan and write prompt): better decisions, assumptions, files-to-touch, acceptance criteria, security boundaries (server token, Clerk, MCP). Planning quality dominates execution success.
+- `medium` for `y` (execute): faster/cheaper, sufficient when the prompt is strict and scoped. It just has to follow the prompt and run the checks.
+
+Caveats:
+
+- Escalate execute to `high`/`xhigh` if: search GROQ/ranking, `app/api/progress/route.ts` auth + write client, video ingestion chunks/chapters. `medium` will cut corners there.
+- Drop plan to `medium` if: trivial UI-only Task 7 items (popover, `⌘K`, completion badge). `high` adds latency with no gain.
+- If `medium` execution drifts from the prompt, do not retry on `medium`. Re-run that step on `high`.
+
 ---
 
 # 3. UI work
