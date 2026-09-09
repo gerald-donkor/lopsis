@@ -426,10 +426,22 @@ a { color: inherit; text-decoration: none; }
 .home-nav { gap: 48px; color: #141617; font-size: 16px; letter-spacing: -.025em; }
 .home-nav a, .home-section-heading a, .home-cta, .home-course-card h3 a { transition: color .18s ease, transform .18s ease, box-shadow .18s ease; }
 .home-nav a:hover, .home-section-heading a:hover { color: #ed4e22; }
-.home-account { gap: 21px; }
-.home-account > button { display: grid; width: 31px; height: 31px; cursor: pointer; place-items: center; border: 0; border-radius: 50%; background: transparent; color: #24282c; }
-.home-account > button:hover { background: #f3ece7; }
-.home-account > button svg { width: 27px; height: 27px; }
+.home-account { gap: 21px; position: relative; }
+.home-account > button, .home-account .notifications-root > button { display: grid; width: 31px; height: 31px; cursor: pointer; place-items: center; border: 0; border-radius: 50%; background: transparent; color: #24282c; }
+.home-account > button:hover, .home-account .notifications-root > button:hover { background: #f3ece7; }
+.home-account > button svg, .home-account .notifications-root > button svg { width: 27px; height: 27px; }
+.notifications-root { position: relative; display: flex; align-items: center; }
+.notifications-root > button { position: relative; }
+.notifications-bell-dot { position: absolute; top: 4px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: #e9532d; box-shadow: 0 0 0 2px #fdfbf9; }
+.notifications-popover { position: absolute; top: calc(100% + 10px); right: 0; z-index: 50; width: 320px; max-width: calc(100vw - 32px); border: 1px solid #eadfd8; border-radius: 12px; padding: 18px; background: #fff; box-shadow: 0 16px 40px rgba(68,45,33,.14); text-align: left; }
+.notifications-heading { margin: 0; color: #111; font-size: 15px; font-weight: 700; letter-spacing: -.015em; outline: none; }
+.notifications-subline { margin: 6px 0 12px; color: #15803d; font-size: 12px; font-weight: 600; }
+.notifications-list { display: grid; gap: 10px; margin: 0 0 14px; padding: 0; list-style: none; }
+.notifications-list li { display: grid; gap: 3px; border: 1px solid #f3eae6; border-radius: 8px; padding: 10px 12px; background: #fdfbf9; }
+.notifications-list strong { color: #24282c; font-size: 12px; }
+.notifications-list span { color: #626a77; font-size: 12px; line-height: 1.5; }
+.notifications-mark-read { display: inline-flex; height: 34px; align-items: center; justify-content: center; width: 100%; cursor: pointer; border: 1px solid #eedfd8; border-radius: 8px; background: #fff; color: #e9532d; font-size: 12px; font-weight: 650; }
+.notifications-mark-read:hover { background: #fff0e9; }
 .home-auth-controls { display: flex; align-items: center; gap: 12px; }
 .home-auth-link, .home-auth-button { display: inline-flex; height: 32px; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; font-weight: 600; letter-spacing: -.015em; transition: background .18s ease, border-color .18s ease, color .18s ease, box-shadow .18s ease, transform .18s ease; }
 .home-auth-link { padding-inline: 2px; color: #af5b43; }
@@ -545,7 +557,8 @@ a { color: inherit; text-decoration: none; }
   .home-auth-button { padding-inline: 10px; }
   .home-user-button { width: 39px; height: 39px; }
   .home-user-button .cl-userButtonAvatarBox { width: 39px; height: 39px; }
-  .home-account > button svg { width: 24px; height: 24px; }
+  .home-account > button svg, .home-account .notifications-root > button svg { width: 24px; height: 24px; }
+  .notifications-popover { right: -8px; }
   .home-hero { min-height: 610px; padding: 81px 20px 42px; }
   .home-eyebrow { margin-bottom: 24px; font-size: 10px; }
   .home-hero h1 { font-size: clamp(39px, 12vw, 50px); }
@@ -730,6 +743,8 @@ a { color: inherit; text-decoration: none; }
 .search-kind { border-radius: 5px; padding: 6px 9px 5px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .search-kind.is-video { background: #fff0e9; color: #ed4e22; }
 .search-kind.is-lesson { background: #f1efff; color: #6655c3; }
+.search-result-tags { display: inline-flex; flex: none; align-items: center; gap: 8px; }
+.search-completed-badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 5px; padding: 5px 8px; background: #eaf7ee; color: #15803d; font-size: 11px; font-weight: 650; letter-spacing: .01em; white-space: nowrap; }
 .search-result-copy h2 { margin: 14px 0 6px; color: #151617; font: 500 16px/1.3 var(--font-inter), Arial, sans-serif; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .is-lesson .search-result-copy h2 { margin-top: 5px; }
 .search-result-copy > p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 590px; margin: 0; color: #626a77; font-size: 13px; line-height: 1.55; }
