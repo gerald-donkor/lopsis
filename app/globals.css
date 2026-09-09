@@ -631,6 +631,49 @@ a { color: inherit; text-decoration: none; }
   .catalog-grid { grid-template-columns: 1fr; gap: 20px; }
   .catalog-card-body { min-height: 270px; padding: 22px 21px 20px; }
 }
+/* Lopsis instructor detail page */
+.instructor-breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 36px; color: #747b85; font-size: 13px; font-weight: 500; }
+.instructor-breadcrumb a { color: #626a77; text-decoration: none; transition: color .18s ease; }
+.instructor-breadcrumb a:hover { color: #e9532d; }
+.instructor-breadcrumb svg { width: 14px; height: 14px; color: #b17660; flex-shrink: 0; }
+.instructor-breadcrumb span[aria-current="page"] { color: #151617; font-weight: 600; }
+.instructor-hero { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 44px; align-items: flex-start; margin-bottom: 52px; padding-bottom: 44px; border-bottom: 1px solid #e9ddd6; }
+.instructor-photo-wrapper { position: relative; }
+.instructor-photo { position: relative; width: 100%; aspect-ratio: 1; overflow: hidden; border-radius: 18px; border: 1px solid #e9ddd6; background: linear-gradient(135deg, #f6dfd5, #efc0ad); box-shadow: 0 4px 12px rgba(68,45,33,.06); }
+.instructor-photo img { object-fit: cover; }
+.instructor-photo-fallback { display: grid; width: 100%; height: 100%; place-items: center; color: rgba(130,59,35,.75); font: 600 64px/1 var(--font-playfair), Georgia, serif; }
+.instructor-profile-info { display: flex; flex-direction: column; min-width: 0; }
+.instructor-eyebrow { margin-bottom: 10px; }
+.instructor-profile-info h1 { margin: 0 0 16px; color: #101112; font: 500 clamp(36px, 4vw, 48px)/1.15 var(--font-playfair), Georgia, serif; letter-spacing: -.035em; }
+.instructor-expertise { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 0 0 16px; }
+.instructor-expertise-tag { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 99px; border: 1px solid #ebdcd5; background: #fff8f5; color: #a2533b; font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.instructor-stats-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.instructor-course-count-badge { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 6px; background: #f4ece7; color: #656c77; font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+.instructor-bio { color: #555d6b; font-size: 15px; line-height: 1.7; max-width: 720px; }
+.instructor-bio p { margin: 0 0 16px; }
+.instructor-bio p:last-child { margin-bottom: 0; }
+.instructor-bio h2 { margin: 24px 0 12px; color: #101112; font: 500 22px/1.3 var(--font-playfair), Georgia, serif; }
+.instructor-bio h3 { margin: 20px 0 10px; color: #151617; font: 600 16px/1.3 var(--font-inter), sans-serif; }
+.instructor-bio blockquote { margin: 18px 0; padding: 12px 20px; border-left: 3px solid #e9532d; background: rgba(255,248,245,.6); border-radius: 0 8px 8px 0; font-style: italic; color: #444c56; }
+.instructor-bio ul, .instructor-bio ol { margin: 12px 0 16px 20px; padding-left: 8px; }
+.instructor-bio li { margin-bottom: 6px; }
+.instructor-bio a { color: #e9532d; text-decoration: underline; text-underline-offset: 3px; transition: color .18s ease; }
+.instructor-bio a:hover { color: #d7431e; }
+.instructor-courses-section { margin-top: 12px; }
+.instructor-courses-heading-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
+.instructor-courses-heading-row h2 { margin: 0; color: #101112; font: 500 clamp(26px, 3vw, 34px)/1.2 var(--font-playfair), Georgia, serif; letter-spacing: -.025em; }
+.instructor-courses-count-label { color: #8a6f64; font-size: 13px; font-weight: 600; }
+
+@media (max-width: 1020px) {
+  .instructor-hero { gap: 32px; grid-template-columns: 170px minmax(0, 1fr); }
+}
+
+@media (max-width: 680px) {
+  .instructor-hero { grid-template-columns: 1fr; gap: 24px; margin-bottom: 40px; padding-bottom: 36px; }
+  .instructor-photo { max-width: 140px; }
+  .instructor-courses-heading-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .instructor-breadcrumb { margin-bottom: 24px; font-size: 12px; }
+}
 
 /* Lopsis intelligent search */
 .search-shell { min-height: 100vh; padding-inline: 22px; background-color: #fffafa; background-image: repeating-linear-gradient(135deg, transparent 0 8px, rgba(246,224,213,.72) 8px 9px); }
