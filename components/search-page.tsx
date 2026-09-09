@@ -9,6 +9,7 @@ import posthog from "posthog-js";
 import {ANALYTICS_EVENTS} from "@/lib/analytics/events";
 import type {SearchResponse, SearchResult} from "@/lib/search/schema";
 import {SiteHeader} from "@/components/site-header";
+import { useLearnerProgress } from "@/lib/progress/use-learner-progress";
 
 function SearchIcon() { return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.75" stroke="currentColor" strokeWidth="1.7" /><path d="m15.4 15.4 4.8 4.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>; }
 function Arrow() { return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
@@ -28,7 +29,18 @@ function CourseIdentity({result}: {result: SearchResult}) {
   return <div className="search-result-course">{result.courseIconUrl ? <span><Image src={result.courseIconUrl} alt="" fill sizes="24px" /></span> : <i aria-hidden="true">{result.courseTitle.slice(0, 1)}</i>}<span>{result.courseTitle}</span></div>;
 }
 
-function ResultCard({result, rank, sort}: {result: SearchResult; rank: number; sort: string}) {
+function CompletedBadge() {
+  return (
+    <span className="search-completed-badge" aria-label="Completed lesson">
+      <svg viewBox="0 0 18 18" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="m3.5 9.5 3.5 3.5 7.5-8" />
+      </svg>
+      Completed
+    </span>
+  );
+}
+
+function ResultCard({result, rank, sort, completed}: {result: SearchResult; rank: number; sort: string; completed: boolean}) {
   const lessonLabel = `Lesson ${result.moduleNumber}.${result.lessonNumber}`;
   const href = `/lessons/${encodeURIComponent(result.lessonSlug)}${result.kind === "video" ? `?start=${result.startSeconds}` : ""}`;
   function captureClick(linkPosition: "poster" | "title" | "action") {
@@ -55,7 +67,7 @@ function ResultCard({result, rank, sort}: {result: SearchResult; rank: number; s
       </Link> : <><LessonIcon />{result.keyPoints.length ? <ul>{result.keyPoints.slice(0, 3).map((point, index) => <li key={index}>{point}</li>)}</ul> : <span className="search-keypoints-empty">Lesson notes</span>}</>}
     </div>
     <div className="search-result-copy">
-      <div className="search-result-top"><CourseIdentity result={result} /><span className={`search-kind is-${result.kind}`}>{result.kind}</span></div>
+      <div className="search-result-top"><CourseIdentity result={result} /><span className="search-result-tags"><span className={`search-kind is-${result.kind}`}>{result.kind}</span>{completed && <CompletedBadge />}</span></div>
       <h2><Link href={href} onClick={() => captureClick("title")}>{result.lessonTitle}</Link></h2>
       <p>{result.description}</p>
       <div className="search-result-footer"><span className="search-result-context"><span><LessonIcon />{lessonLabel}</span><i>·</i><span><Folder />{result.moduleTitle}</span></span><Link href={href} onClick={() => captureClick("action")}>{result.kind === "video" ? <><Play />Watch from {formatTime(result.startSeconds)}</> : <>View lesson<OpenIcon /></>}<Chevron /></Link></div>
@@ -72,18 +84,7 @@ export function SearchPage({initialQuery}: {initialQuery: string}) {
   const [attempt, setAttempt] = useState(0);
   const [sort, setSort] = useState("relevance");
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    function focusSearch(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      }
-    }
-    window.addEventListener("keydown", focusSearch);
-    return () => window.removeEventListener("keydown", focusSearch);
-  }, []);
+  const { isLessonCompleted, isLoading: progressLoading, isSignedIn } = useLearnerProgress();
 
   useEffect(() => {
     if (!initialQuery) return;
@@ -134,7 +135,7 @@ export function SearchPage({initialQuery}: {initialQuery: string}) {
     {initialQuery && <div className="search-toolbar"><strong>{loading ? "Searching…" : error ? "Search results" : `${resultCount} ${resultCount === 1 ? "result" : "results"}`}</strong><label><span className="sr-only">Sort results</span><select disabled={loading || !response?.results.length} value={sort} onChange={(event) => changeSort(event.target.value)}><option value="relevance">Most Relevant</option><option value="title">Title A–Z</option><option value="course">Course A–Z</option></select><span>⌄</span></label></div>}
     {loading && <div className="search-results" aria-live="polite" aria-busy="true">{[1,2,3].map((item) => <div className="search-result-skeleton" key={item} />)}</div>}
     {!loading && error && <section className="search-state" role="alert"><SearchIcon /><h2>Search is unavailable</h2><p>{error}</p><button type="button" onClick={retry}>Try again</button></section>}
-    {!loading && !error && results.length ? <section className="search-results" aria-label="Search results">{results.map((result, index) => <ResultCard key={result.id} result={result} rank={index + 1} sort={sort} />)}</section> : null}
+    {!loading && !error && results.length ? <section className="search-results" aria-label="Search results">{results.map((result, index) => <ResultCard key={result.id} result={result} rank={index + 1} sort={sort} completed={isSignedIn && !progressLoading && isLessonCompleted(result.courseId, result.lessonId)} />)}</section> : null}
     {!loading && !error && initialQuery && response && !response.results.length ? <section className="search-state"><SearchIcon /><h2>No matching lessons yet</h2><p>Try different keywords or browse the full course catalog.</p><Link href="/courses">Browse all courses <Arrow /></Link></section> : null}
     {!initialQuery && <section className="search-state is-empty"><SearchIcon /><h2>What would you like to learn?</h2><p>Search across every Lopsis course, lesson, and available video moment.</p></section>}
     {response?.results.length ? <aside className="search-catalog-callout"><SearchIcon /><div><strong>Can’t find what you’re looking for?</strong><span>Try different keywords or browse our full course catalog.</span></div><Link href="/courses">Browse all courses <Arrow /></Link></aside> : null}

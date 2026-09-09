@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import posthog from "posthog-js";
@@ -297,20 +297,6 @@ function BottomGlow() {
 export default function HomePage({ courses }: { courses: COURSES_QUERY_RESULT }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        searchInputRef.current?.select();
-        posthog.capture("search_shortcut_used", { source: "home_page" });
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
   const handleKbdClick = () => {
     searchInputRef.current?.focus();
     searchInputRef.current?.select();
@@ -338,9 +324,10 @@ export default function HomePage({ courses }: { courses: COURSES_QUERY_RESULT })
                 maxLength={240}
                 required
                 placeholder="Ask anything about your learning..."
+                aria-keyshortcuts="Meta+k Control+k"
                 onFocus={() => posthog.capture("search_focused")}
               />
-              <kbd onClick={handleKbdClick} style={{ cursor: "pointer" }}>⌘ K</kbd>
+              <kbd onClick={handleKbdClick} style={{ cursor: "pointer" }} aria-hidden="true">⌘ K</kbd>
             </form>
           </section>
 
