@@ -314,7 +314,7 @@ Below are the 7 implementation tasks in precise dependency order. Use `i` to pro
 - [x] Task 3: Catalog & Home Page Progress Affordances & Instructor Links (`prompts/47-catalog-home-progress-and-instructor-links.md`)
 - [x] Task 4: Lesson Page Interactivity, Completion Toggle & Video Resume Persistence (`prompts/48-lesson-page-interactivity-and-video-resume.md`)
 - [x] Task 5: Instructor Detail Pages (/instructors/[slug]) & Profile UI (`prompts/49-instructor-detail-pages.md`)
-- [ ] Task 6: My Learning Page (/my-learning) with Enrolled, Completed & Bookmarked Views (`prompts/46-my-learning-page.md`)
+- [x] Task 6: My Learning Page (/my-learning) with Enrolled, Completed & Bookmarked Views (`prompts/51-my-learning-page.md`)
 - [ ] Task 7: Notifications Dropdown, Global Search Shortcut (⌘K) & Search Page Completion Marks (`prompts/47-notifications-popover-and-global-shortcuts.md`)
 
 ---
