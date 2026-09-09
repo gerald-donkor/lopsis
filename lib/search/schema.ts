@@ -66,6 +66,8 @@ const resultBase = z.object({
   lessonNumber: z.number().int().positive(),
   description: z.string(),
   relevance: z.number(),
+  posterUrl: z.string().url().nullable(),
+  videoUrl: z.string().url().nullable(),
 })
 
 export const searchResultSchema = z.discriminatedUnion('kind', [
@@ -75,7 +77,6 @@ export const searchResultSchema = z.discriminatedUnion('kind', [
   }),
   resultBase.extend({
     kind: z.literal('video'),
-    posterUrl: z.string().url().nullable(),
     startSeconds: z.number().int().min(0),
     clipLengthSeconds: z.number().int().positive().nullable(),
     matchSource: z.enum(['chapter', 'chunk']),

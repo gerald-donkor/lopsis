@@ -29,6 +29,7 @@ interface ExtractedVideo {
   providerId: string
   normalizedUrl: string
   title?: string
+  playlistUrl?: string
   chapters: Chapter[]
   chunks: Array<{_key: string; _type: 'object'; startSeconds: number; text: string}>
 }
@@ -57,8 +58,15 @@ type BunnyPlayData = {
     chapters?: Array<{start?: number; title?: string}> | null
     isPublic?: boolean
     title?: string
+    thumbnailFileName?: string | null
   }
 }
+
+type ProviderThumbnail = {buffer: Buffer; contentType: string; sourceUrl: string}
+
+const MAX_THUMBNAIL_BYTES = 15 * 1024 * 1024
+const BUNNY_STREAM_API_KEY = process.env.BUNNY_STREAM_API_KEY
+const BUNNY_LIBRARY_ID_OVERRIDE = process.env.BUNNY_LIBRARY_ID
 
 const client = getCliClient({apiVersion: '2026-09-02'})
 const execFileAsync = promisify(execFile)
@@ -394,13 +402,10 @@ async function fetchVimeo(parsed: ParsedVideoSource): Promise<ExtractedVideo | n
 }
 
 /**
- * Fetches video metadata, chapters, and captions from Bunny CDN for ingestion.
- * Requires public unsigned playback to access caption tracks.
- * @param parsed - The parsed video source containing provider ID (libraryId/videoId) and normalized URL
- * @returns Extracted video with chapters and transcript chunks, or null if no captions are available
+ * Fetches Bunny's public play payload (no API key). Shared by caption
+ * extraction and provider-thumbnail resolution.
  */
-async function fetchBunny(parsed: ParsedVideoSource): Promise<ExtractedVideo | null> {
-  const [libraryId, videoId] = parsed.providerId.split('/')
+async function fetchBunnyPlayData(libraryId: string, videoId: string): Promise<BunnyPlayData> {
   const playRes = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}/play`, {
     headers: {accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; LopsisIngest/1.0)'},
   })
@@ -410,8 +415,18 @@ async function fetchBunny(parsed: ParsedVideoSource): Promise<ExtractedVideo | n
   if (!playRes.ok) {
     throw new Error(`Bunny play data returned ${playRes.status}`)
   }
+  return (await playRes.json()) as BunnyPlayData
+}
 
-  const data = await playRes.json() as BunnyPlayData
+/**
+ * Fetches video metadata, chapters, and captions from Bunny CDN for ingestion.
+ * Requires public unsigned playback to access caption tracks.
+ * @param parsed - The parsed video source containing provider ID (libraryId/videoId) and normalized URL
+ * @returns Extracted video with chapters and transcript chunks, or null if no captions are available
+ */
+async function fetchBunny(parsed: ParsedVideoSource): Promise<ExtractedVideo | null> {
+  const [libraryId, videoId] = parsed.providerId.split('/')
+  const data = await fetchBunnyPlayData(libraryId, videoId)
   if (data.tokenAuthEnabled || data.video?.isPublic === false) {
     throw new Error('Bunny captions require public unsigned playback')
   }
@@ -449,6 +464,7 @@ async function fetchBunny(parsed: ParsedVideoSource): Promise<ExtractedVideo | n
     providerId: parsed.providerId,
     normalizedUrl: parsed.normalizedUrl,
     title: data.video?.title,
+    playlistUrl: data.videoPlaylistUrl ?? undefined,
     chapters,
     chunks,
   }
@@ -470,13 +486,146 @@ async function extractVideo(videoUrl: string): Promise<ExtractedVideo | null> {
   }
 }
 
+/** Builds the public Vimeo oEmbed URL for a lesson video URL (no auth needed). */
+export function vimeoOEmbedUrl(videoUrl: string): string {
+  return `https://vimeo.com/api/oembed.json?url=${encodeURIComponent(videoUrl)}`
+}
+
+/** Builds a Bunny CDN thumbnail URL from its pull-zone host, video id and file name. */
+export function bunnyThumbnailUrl(host: string, videoId: string, fileName: string): string {
+  return `https://${host}/${videoId}/${fileName}`
+}
+
+async function fetchImageBytes(url: string): Promise<ProviderThumbnail> {
+  const res = await fetch(url, {
+    headers: {'user-agent': 'Mozilla/5.0 (compatible; LopsisIngest/1.0)'},
+  })
+  if (!res.ok) {
+    throw new Error(`thumbnail download returned ${res.status}`)
+  }
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!contentType.startsWith('image/')) {
+    throw new Error(`thumbnail is not an image (${contentType || 'unknown content-type'})`)
+  }
+  const arrayBuffer = await res.arrayBuffer()
+  if (arrayBuffer.byteLength === 0 || arrayBuffer.byteLength > MAX_THUMBNAIL_BYTES) {
+    throw new Error('thumbnail size out of bounds')
+  }
+  return {buffer: Buffer.from(arrayBuffer), contentType, sourceUrl: url}
+}
+
+/**
+ * Fetches a Vimeo thumbnail via the public oEmbed endpoint.
+ * Returns null (instead of throwing) when the video forbids embedding —
+ * the lesson simply keeps its Sanity poster.
+ */
+async function fetchVimeoThumbnail(videoUrl: string): Promise<ProviderThumbnail | null> {
+  const res = await fetch(vimeoOEmbedUrl(videoUrl), {
+    headers: {'user-agent': 'Mozilla/5.0 (compatible; LopsisIngest/1.0)'},
+  })
+  if (res.status === 404) return null
+  if (!res.ok) {
+    throw new Error(`Vimeo oEmbed returned ${res.status}`)
+  }
+  const data = (await res.json()) as {thumbnail_url?: unknown}
+  if (typeof data.thumbnail_url !== 'string' || !data.thumbnail_url.startsWith('https://')) {
+    return null
+  }
+  return fetchImageBytes(data.thumbnail_url)
+}
+
+/**
+ * Fetches a Bunny thumbnail via the Stream metadata API (key required) and
+ * the pull-zone host from the public play payload. Returns null when no API
+ * key is configured so unattended runs without Bunny access still succeed.
+ */
+async function fetchBunnyThumbnail(
+  libraryId: string,
+  videoId: string,
+  pullZoneHost: string | null,
+): Promise<ProviderThumbnail | null> {
+  if (!BUNNY_STREAM_API_KEY) {
+    console.warn('Skipping Bunny thumbnail: BUNNY_STREAM_API_KEY is not set')
+    return null
+  }
+  if (!pullZoneHost) return null
+  const metaRes = await fetch(`https://video.bunnycdn.com/library/${libraryId}/videos/${videoId}`, {
+    headers: {AccessKey: BUNNY_STREAM_API_KEY, accept: 'application/json'},
+  })
+  if (!metaRes.ok) {
+    throw new Error(`Bunny metadata returned ${metaRes.status}`)
+  }
+  const meta = (await metaRes.json()) as {thumbnailFileName?: unknown}
+  if (typeof meta.thumbnailFileName !== 'string' || !meta.thumbnailFileName) return null
+  return fetchImageBytes(bunnyThumbnailUrl(pullZoneHost, videoId, meta.thumbnailFileName))
+}
+
+/**
+ * Stores a provider thumbnail as the lesson's Sanity poster (and thumbnail).
+ * YouTube lessons are covered by upload-missing-assets; this hook exists for
+ * Vimeo/Bunny lessons that have no deterministic thumbnail URL scheme.
+ * Respects dry-run; only overwrites an existing poster with --force.
+ */
+async function ensureLessonPoster(
+  lesson: {_id: string; slug: string; videoUrl: string; poster?: {asset?: {_ref?: string}} | null},
+  parsed: ParsedVideoSource,
+  playlistUrl?: string,
+): Promise<void> {
+  if (!force && lesson.poster?.asset?._ref) return
+  if (parsed.provider !== 'vimeo' && parsed.provider !== 'bunny') return
+
+  let thumb: ProviderThumbnail | null = null
+  if (parsed.provider === 'vimeo') {
+    thumb = await fetchVimeoThumbnail(lesson.videoUrl)
+  } else {
+    const [parsedLibraryId, videoId] = parsed.providerId.split('/')
+    let host: string | null = null
+    if (playlistUrl) {
+      host = new URL(playlistUrl).hostname
+    } else {
+      const playData = await fetchBunnyPlayData(
+        BUNNY_LIBRARY_ID_OVERRIDE || parsedLibraryId,
+        videoId,
+      )
+      host = playData.videoPlaylistUrl ? new URL(playData.videoPlaylistUrl).hostname : null
+    }
+    thumb = await fetchBunnyThumbnail(
+      BUNNY_LIBRARY_ID_OVERRIDE || parsedLibraryId,
+      videoId,
+      host,
+    )
+  }
+
+  if (!thumb) {
+    console.log(`No provider thumbnail for ${lesson.slug}`)
+    return
+  }
+
+  if (dryRun) {
+    console.log(`Would store poster for ${lesson.slug} from ${thumb.sourceUrl}`)
+    return
+  }
+
+  const asset = await client.assets.upload('image', thumb.buffer, {
+    filename: `${lesson.slug.slice(0, 90)}-poster.jpg`,
+    contentType: thumb.contentType as 'image/jpeg',
+  })
+  const posterValue = {
+    _type: 'contentImage',
+    alt: `Video thumbnail`,
+    asset: {_type: 'reference', _ref: asset._id},
+  }
+  await client.patch(lesson._id).set({poster: posterValue, thumbnail: posterValue}).commit()
+  console.log(`Stored poster for ${lesson.slug} from ${thumb.sourceUrl}`)
+}
+
 /**
  * Orchestrates the video ingestion pass: loads lessons, filters already-ingested videos by normalized URL,
  * and runs extraction workers concurrently to fetch and store video metadata.
  */
 async function run() {
-  const lessons = await client.fetch<Array<{_id: string; slug: string; videoUrl: string}>>(
-    `*[_type == "lesson" && defined(videoUrl) && (!defined($slug) || slug.current == $slug)]{_id, "slug": slug.current, videoUrl}`,
+  const lessons = await client.fetch<Array<{_id: string; slug: string; videoUrl: string; poster?: {asset?: {_ref?: string}} | null}>>(
+    `*[_type == "lesson" && defined(videoUrl) && (!defined($slug) || slug.current == $slug)]{_id, "slug": slug.current, videoUrl, poster}`,
     {slug: requestedSlug ?? null},
   )
 
@@ -496,41 +645,47 @@ async function run() {
       cursor += 1
       const lesson = lessons[index]
       try {
-        const normalizedLessonUrl = parseVideoUrl(lesson.videoUrl)?.normalizedUrl ?? lesson.videoUrl
-        if (!force && existingUrls.has(normalizedLessonUrl)) {
+        const parsed = parseVideoUrl(lesson.videoUrl)
+        const normalizedLessonUrl = parsed?.normalizedUrl ?? lesson.videoUrl
+        const alreadyIngested = !force && existingUrls.has(normalizedLessonUrl)
+        const needsPoster = force || !lesson.poster?.asset?._ref
+        if (alreadyIngested && !needsPoster) {
           console.log(`Already ingested ${lesson.slug}`)
           continue
         }
 
-        const extracted = await extractVideo(lesson.videoUrl)
-        if (!extracted?.chunks.length) {
+        const extracted = alreadyIngested ? null : await extractVideo(lesson.videoUrl)
+        if (!alreadyIngested && !extracted?.chunks.length) {
           skipped += 1
           console.warn(`Skipped ${lesson.slug}: no accessible captions`)
-          continue
+        } else if (!alreadyIngested && extracted) {
+          const suffix = createHash('sha256').update(extracted.normalizedUrl).digest('hex').slice(0, 20)
+          const safeId = extracted.providerId.replace(/[^a-zA-Z0-9_-]/g, '')
+          const document = {
+            _id: `video.${extracted.provider}.v${safeId}.${suffix}`,
+            _type: 'video',
+            providerId: extracted.providerId,
+            url: extracted.normalizedUrl,
+            sourceTitle: extracted.title,
+            chapters: extracted.chapters.map((chapter) => ({
+              ...chapter,
+              _type: 'object',
+              _key: `chapter-${chapter.startSeconds}`,
+            })),
+            chunks: extracted.chunks,
+            ingestedAt: new Date().toISOString(),
+          }
+
+          if (!dryRun) {
+            await client.createOrReplace(document)
+          }
+          written += 1
+          console.log(`${dryRun ? 'Would write' : 'Wrote'} ${lesson.slug}: ${document.chapters.length} chapters, ${document.chunks.length} chunks`)
         }
 
-        const suffix = createHash('sha256').update(extracted.normalizedUrl).digest('hex').slice(0, 20)
-        const safeId = extracted.providerId.replace(/[^a-zA-Z0-9_-]/g, '')
-        const document = {
-          _id: `video.${extracted.provider}.v${safeId}.${suffix}`,
-          _type: 'video',
-          providerId: extracted.providerId,
-          url: extracted.normalizedUrl,
-          sourceTitle: extracted.title,
-          chapters: extracted.chapters.map((chapter) => ({
-            ...chapter,
-            _type: 'object',
-            _key: `chapter-${chapter.startSeconds}`,
-          })),
-          chunks: extracted.chunks,
-          ingestedAt: new Date().toISOString(),
+        if (needsPoster && parsed) {
+          await ensureLessonPoster(lesson, parsed, extracted?.playlistUrl)
         }
-
-        if (!dryRun) {
-          await client.createOrReplace(document)
-        }
-        written += 1
-        console.log(`${dryRun ? 'Would write' : 'Wrote'} ${lesson.slug}: ${document.chapters.length} chapters, ${document.chunks.length} chunks`)
 
         // Modest delay between downloads to be polite to provider APIs
         await sleep(300)

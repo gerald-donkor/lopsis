@@ -11,7 +11,11 @@
     "schema:deploy": "sanity schemas deploy",
     "typecheck": "tsc --noEmit",
     "typegen": "sanity schema extract --path schema.json --enforce-required-fields && sanity typegen generate",
-    "ingest:videos": "sanity exec scripts/ingest-videos.ts --with-user-token"
+    "ingest:videos": "sanity exec scripts/ingest-videos.ts --with-user-token",
+    "assets:upload": "sanity exec scripts/seed/upload-missing-assets.ts --with-user-token",
+    "seed": "sanity exec scripts/seed/seed-content.ts --with-user-token",
+    "content:guard": "sanity exec scripts/check-dataset.ts",
+    "content:publish": "npm run content:guard && npm run assets:upload && npm run seed && npm run schema:deploy && npm run deploy"
   },
   "dependencies": {
     "@sanity/icons": "^5.2.1",
