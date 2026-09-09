@@ -1,6 +1,7 @@
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import { GlobalSearchShortcut } from "@/components/global-search-shortcut";
 import { PostHogIdentity } from "@/components/posthog-identity";
 import { LearnerProgressProvider } from "@/lib/progress/progress-provider";
 import "./globals.css";
@@ -21,7 +22,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <ClerkProvider>
           <PostHogIdentity />
-          <LearnerProgressProvider>{children}</LearnerProgressProvider>
+          <LearnerProgressProvider>
+            <GlobalSearchShortcut />
+            {children}
+          </LearnerProgressProvider>
         </ClerkProvider>
       </body>
     </html>
