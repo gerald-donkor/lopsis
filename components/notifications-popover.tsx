@@ -84,7 +84,7 @@ export function NotificationsPopover() {
           <h2 ref={headingRef} tabIndex={-1} className="notifications-heading">
             Notifications
           </h2>
-          <p className="notifications-subline">You&apos;re all caught up!</p>
+          <p className="notifications-subline">{unread === 0 ? "You\u2019re all caught up!" : `You have ${unread} unread notification${unread === 1 ? "" : "s"}.`}</p>
           <ul className="notifications-list">
             {ANNOUNCEMENTS.map((item) => (
               <li key={item.title}>
