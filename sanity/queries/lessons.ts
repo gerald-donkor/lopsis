@@ -47,6 +47,9 @@ export const LESSON_BY_SLUG_QUERY = defineQuery(/* groq */ `
           _id,
           title,
           "slug": slug.current,
+          videoUrl,
+          poster { ${IMAGE_FRAGMENT} },
+          thumbnail { ${IMAGE_FRAGMENT} },
           durationSeconds,
           "freePreview": coalesce(freePreview, false)
         }

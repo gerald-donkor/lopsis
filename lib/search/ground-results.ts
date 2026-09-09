@@ -11,6 +11,7 @@ type GroundedLesson = {
   keyPoints: string[] | null
   description: string | null
   posterUrl: string | null
+  videoUrl: string | null
   course: {
     _id: string
     title: string
@@ -34,6 +35,7 @@ const GROUND_CANDIDATES_QUERY = `
     keyPoints,
     "description": pt::text(notes),
     "posterUrl": coalesce(poster.asset->url, thumbnail.asset->url),
+    videoUrl,
     "course": *[_type == "course" && references(^._id)][0] {
       _id,
       title,
@@ -84,6 +86,8 @@ export async function groundSearchCandidates(candidates: SearchCandidate[], sign
       moduleNumber: moduleIndex + 1,
       lessonNumber: lessonIndex + 1,
       relevance: candidate.relevance,
+      posterUrl: lesson.posterUrl,
+      videoUrl: lesson.videoUrl,
     }
 
     if (candidate.kind === 'lesson') {
@@ -115,7 +119,7 @@ export async function groundSearchCandidates(candidates: SearchCandidate[], sign
       ? Math.floor(endSeconds - candidate.startSeconds) || null
       : null
     const momentText = 'label' in moment ? moment.label : moment.text
-    results.push({...base, id, kind: 'video', description: compactDescription(momentText, lesson.title), posterUrl: lesson.posterUrl, startSeconds: candidate.startSeconds, clipLengthSeconds, matchSource: candidate.matchSource})
+    results.push({...base, id, kind: 'video', description: compactDescription(momentText, lesson.title), startSeconds: candidate.startSeconds, clipLengthSeconds, matchSource: candidate.matchSource})
   }
 
   return results

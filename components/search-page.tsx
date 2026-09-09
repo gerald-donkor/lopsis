@@ -10,6 +10,7 @@ import {ANALYTICS_EVENTS} from "@/lib/analytics/events";
 import type {SearchResponse, SearchResult} from "@/lib/search/schema";
 import {SiteHeader} from "@/components/site-header";
 import { useLearnerProgress } from "@/lib/progress/use-learner-progress";
+import { resolveLessonThumbnail } from "@/lib/media/video-thumbnails";
 
 function SearchIcon() { return <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.75" stroke="currentColor" strokeWidth="1.7" /><path d="m15.4 15.4 4.8 4.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>; }
 function Arrow() { return <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 10h11M11 6l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>; }
@@ -61,7 +62,10 @@ function ResultCard({result, rank, sort, completed}: {result: SearchResult; rank
   return <article className={`search-result-card is-${result.kind}`}>
     <div className="search-result-visual">
       {result.kind === "video" ? <Link className="search-poster-link" href={href} onClick={() => captureClick("poster")} aria-label={`Watch ${result.lessonTitle} from ${formatTime(result.startSeconds)}`}>
-        {result.posterUrl ? <Image src={result.posterUrl} alt="" fill sizes="(max-width: 620px) calc(100vw - 64px), 274px" /> : <span className="search-result-poster-fallback">{result.courseTitle.slice(0, 1)}</span>}
+        {(() => {
+          const thumb = resolveLessonThumbnail({posterUrl: result.posterUrl, videoUrl: result.videoUrl});
+          return thumb ? <Image src={thumb} alt="" fill sizes="(max-width: 620px) calc(100vw - 64px), 274px" /> : <span className="search-result-poster-fallback">{result.courseTitle.slice(0, 1)}</span>;
+        })()}
         <span className="search-play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 4 13 8-13 8V4Z" fill="currentColor" /></svg></span>
         {result.clipLengthSeconds !== null && <b aria-label={`Clip duration ${formatTime(result.clipLengthSeconds)}`}>{formatTime(result.clipLengthSeconds)}</b>}
       </Link> : <><LessonIcon />{result.keyPoints.length ? <ul>{result.keyPoints.slice(0, 3).map((point, index) => <li key={index}>{point}</li>)}</ul> : <span className="search-keypoints-empty">Lesson notes</span>}</>}

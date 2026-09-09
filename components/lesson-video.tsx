@@ -1,6 +1,7 @@
 "use client";
 
 import type Player from "@vimeo/player";
+import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import posthog from "posthog-js";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
@@ -103,6 +104,7 @@ type LessonVideoProps = {
   lessonId: string;
   lessonSlug: string;
   lessonTitle: string;
+  posterUrl: string | null;
   startSeconds: number;
   videoUrl: string;
 };
@@ -111,7 +113,7 @@ type LessonVideoProps = {
  * Renders the lesson's embedded video player with provider-specific playback, progress tracking, and analytics.
  * Player remounts when video source or playback context changes to ensure correct initialization.
  */
-export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, lessonSlug, lessonTitle, startSeconds, videoUrl }: LessonVideoProps) {
+export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, lessonSlug, lessonTitle, posterUrl, startSeconds, videoUrl }: LessonVideoProps) {
   const { records, isSignedIn, isLessonCompleted, recordResume, savePosition, toggleComplete } = useLearnerProgress();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const playedRef = useRef(false);
@@ -406,7 +408,18 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
   }
 
   return (
-    <div className="lesson-video-frame">
+    <div className="lesson-video-frame" style={{ position: "relative" }}>
+      {posterUrl && (
+        <Image
+          src={posterUrl}
+          alt=""
+          aria-hidden="true"
+          fill
+          sizes="(max-width: 900px) calc(100vw - 48px), 860px"
+          style={{ objectFit: "cover" }}
+          priority={false}
+        />
+      )}
       <iframe
         key={playerKey}
         ref={iframeRef}
@@ -416,6 +429,7 @@ export function LessonVideo({ courseId, courseSlug, durationSeconds, lessonId, l
         allowFullScreen
         referrerPolicy="strict-origin-when-cross-origin"
         sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+        style={{ position: "relative" }}
       />
     </div>
   );
