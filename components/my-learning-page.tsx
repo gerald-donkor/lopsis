@@ -87,8 +87,9 @@ export function MyLearningPage({ courses }: { courses: COURSES_QUERY_RESULT }) {
   const tabListRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (!authLoaded) return;
     posthog.capture("my_learning_viewed", { is_signed_in: Boolean(isSignedIn) });
-  }, [isSignedIn]);
+  }, [isSignedIn, authLoaded]);
 
   useEffect(() => {
     return () => {
