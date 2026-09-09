@@ -214,56 +214,61 @@ export function MyLearningPage({ courses }: { courses: COURSES_QUERY_RESULT }) {
             </section>
           ) : (
             <div className="my-learning-dashboard">
-              <div
-                className="my-learning-tabs"
-                role="tablist"
-                aria-label="Learning dashboard views"
-                ref={tabListRef}
-              >
-                <button
-                  type="button"
-                  id="tab-in-progress"
-                  role="tab"
-                  aria-selected={activeTab === "in-progress"}
-                  aria-controls="tabpanel-in-progress"
-                  tabIndex={activeTab === "in-progress" ? 0 : -1}
-                  className={`my-learning-tab ${activeTab === "in-progress" ? "is-active" : ""}`}
-                  onClick={() => handleTabChange("in-progress")}
-                  onKeyDown={(e) => handleKeyDown(e, "in-progress")}
+              <div className="my-learning-tabs-bar">
+                <div
+                  className="my-learning-tabs"
+                  role="tablist"
+                  aria-label="Learning dashboard views"
+                  ref={tabListRef}
                 >
-                  <span>In Progress</span>
-                  <span className="my-learning-tab-count">{inProgressCourses.length}</span>
-                </button>
+                  <button
+                    type="button"
+                    id="tab-in-progress"
+                    role="tab"
+                    aria-selected={activeTab === "in-progress"}
+                    aria-controls="tabpanel-in-progress"
+                    tabIndex={activeTab === "in-progress" ? 0 : -1}
+                    className={`my-learning-tab ${activeTab === "in-progress" ? "is-active" : ""}`}
+                    onClick={() => handleTabChange("in-progress")}
+                    onKeyDown={(e) => handleKeyDown(e, "in-progress")}
+                  >
+                    <span>In Progress</span>
+                    <span className="my-learning-tab-count">{inProgressCourses.length}</span>
+                  </button>
 
-                <button
-                  type="button"
-                  id="tab-completed"
-                  role="tab"
-                  aria-selected={activeTab === "completed"}
-                  aria-controls="tabpanel-completed"
-                  tabIndex={activeTab === "completed" ? 0 : -1}
-                  className={`my-learning-tab ${activeTab === "completed" ? "is-active" : ""}`}
-                  onClick={() => handleTabChange("completed")}
-                  onKeyDown={(e) => handleKeyDown(e, "completed")}
-                >
-                  <span>Completed</span>
-                  <span className="my-learning-tab-count">{completedCourses.length}</span>
-                </button>
+                  <button
+                    type="button"
+                    id="tab-completed"
+                    role="tab"
+                    aria-selected={activeTab === "completed"}
+                    aria-controls="tabpanel-completed"
+                    tabIndex={activeTab === "completed" ? 0 : -1}
+                    className={`my-learning-tab ${activeTab === "completed" ? "is-active" : ""}`}
+                    onClick={() => handleTabChange("completed")}
+                    onKeyDown={(e) => handleKeyDown(e, "completed")}
+                  >
+                    <span>Completed</span>
+                    <span className="my-learning-tab-count">{completedCourses.length}</span>
+                  </button>
 
-                <button
-                  type="button"
-                  id="tab-bookmarked"
-                  role="tab"
-                  aria-selected={activeTab === "bookmarked"}
-                  aria-controls="tabpanel-bookmarked"
-                  tabIndex={activeTab === "bookmarked" ? 0 : -1}
-                  className={`my-learning-tab ${activeTab === "bookmarked" ? "is-active" : ""}`}
-                  onClick={() => handleTabChange("bookmarked")}
-                  onKeyDown={(e) => handleKeyDown(e, "bookmarked")}
-                >
-                  <span>Bookmarked</span>
-                  <span className="my-learning-tab-count">{totalBookmarksCount}</span>
-                </button>
+                  <button
+                    type="button"
+                    id="tab-bookmarked"
+                    role="tab"
+                    aria-selected={activeTab === "bookmarked"}
+                    aria-controls="tabpanel-bookmarked"
+                    tabIndex={activeTab === "bookmarked" ? 0 : -1}
+                    className={`my-learning-tab ${activeTab === "bookmarked" ? "is-active" : ""}`}
+                    onClick={() => handleTabChange("bookmarked")}
+                    onKeyDown={(e) => handleKeyDown(e, "bookmarked")}
+                  >
+                    <span>Bookmarked</span>
+                    <span className="my-learning-tab-count">{totalBookmarksCount}</span>
+                  </button>
+                </div>
+                <Link href="/courses" className="my-learning-tab-explore">
+                  Explore courses <ArrowRight />
+                </Link>
               </div>
 
               {activeTab === "in-progress" && (
@@ -286,7 +291,11 @@ export function MyLearningPage({ courses }: { courses: COURSES_QUERY_RESULT }) {
                         You haven&apos;t started any courses yet. Explore our catalog to find a
                         course and start building durable, real-world skills.
                       </p>
-                      <Link href="/courses">Explore all courses</Link>
+                      <div className="my-learning-empty-actions">
+                        <Link href="/courses" className="my-learning-btn my-learning-btn-primary">
+                          Explore courses
+                        </Link>
+                      </div>
                     </div>
                   )}
                 </section>
@@ -312,17 +321,27 @@ export function MyLearningPage({ courses }: { courses: COURSES_QUERY_RESULT }) {
                         When you finish all lessons in a course, it will be proudly displayed here.
                         Keep going!
                       </p>
-                      {inProgressCourses.length > 0 ? (
-                        <button
-                          type="button"
-                          className="my-learning-switch-btn"
-                          onClick={() => handleTabChange("in-progress")}
+                      <div className="my-learning-empty-actions">
+                        {inProgressCourses.length > 0 && (
+                          <button
+                            type="button"
+                            className="my-learning-switch-btn"
+                            onClick={() => handleTabChange("in-progress")}
+                          >
+                            View courses in progress <ArrowRight />
+                          </button>
+                        )}
+                        <Link
+                          href="/courses"
+                          className={`my-learning-btn ${
+                            inProgressCourses.length > 0
+                              ? "my-learning-btn-secondary"
+                              : "my-learning-btn-primary"
+                          }`}
                         >
-                          View courses in progress <ArrowRight />
-                        </button>
-                      ) : (
-                        <Link href="/courses">Explore all courses</Link>
-                      )}
+                          Explore courses
+                        </Link>
+                      </div>
                     </div>
                   )}
                 </section>
@@ -414,7 +433,11 @@ export function MyLearningPage({ courses }: { courses: COURSES_QUERY_RESULT }) {
                         Click the bookmark icon on any course or lesson to save it here for quick
                         access whenever you return.
                       </p>
-                      <Link href="/courses">Explore all courses</Link>
+                      <div className="my-learning-empty-actions">
+                        <Link href="/courses" className="my-learning-btn my-learning-btn-secondary">
+                          Explore courses
+                        </Link>
+                      </div>
                     </div>
                   )}
                 </section>
